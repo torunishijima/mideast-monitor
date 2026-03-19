@@ -1,14 +1,15 @@
-"""HTML レポート生成モジュール"""
+"""HTML レポート生成モジュール（全世界・時系列対応）"""
 import json
 from config import REGIONS
 
 
-def generate(results, timestamp):
-    regions_json  = json.dumps(_regions_for_map(results), ensure_ascii=False)
+def generate(results, trend, history, timestamp):
+    regions_json  = json.dumps(_regions_for_map(results, trend), ensure_ascii=False)
     aircraft_json = json.dumps(_aircraft_for_map(results), ensure_ascii=False)
     ships_json    = json.dumps(_ships_for_map(results), ensure_ascii=False)
     fires_json    = json.dumps(_fires_for_map(results), ensure_ascii=False)
-    cards_html    = ''.join(_card_html(rid, results[rid]) for rid in results)
+    history_json  = json.dumps(_history_for_chart(history), ensure_ascii=False)
+    cards_html    = ''.join(_card_html(rid, results[rid], trend[rid]) for rid in results)
 
     return f'''<!DOCTYPE html>
 <html lang="ja">
@@ -18,6 +19,7 @@ def generate(results, timestamp):
 <title>世界の緊張地帯 活動モニター</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <style>
 * {{ box-sizing: border-box; margin: 0; padding: 0; }}
 body {{ font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #1a1a2e; color: #eee; }}
@@ -25,95 +27,150 @@ header {{ padding: 14px 20px; background: #16213e; border-bottom: 1px solid #2a2
           display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }}
 header h1 {{ font-size: 17px; }}
 .updated {{ font-size: 12px; color: #888; margin-left: auto; }}
-#map {{ height: 52vh; }}
-.legend {{ padding: 8px 20px; background: #16213e; border-bottom: 1px solid #2a2a4a;
-           display: flex; gap: 16px; font-size: 12px; color: #aaa; flex-wrap: wrap; }}
-.legend span {{ display: flex; align-items: center; gap: 5px; }}
-.dot {{ width: 10px; height: 10px; border-radius: 50%; display: inline-block; }}
+#map {{ height: 50vh; }}
+.legend {{ padding: 6px 16px; background: #16213e; border-bottom: 1px solid #2a2a4a;
+           display: flex; gap: 14px; font-size: 11px; color: #aaa; flex-wrap: wrap; }}
+.legend span {{ display: flex; align-items: center; gap: 4px; }}
+.dot {{ width: 9px; height: 9px; border-radius: 50%; display: inline-block; }}
+.chart-section {{ padding: 14px; background: #16213e; border-bottom: 1px solid #2a2a4a; }}
+.chart-section h2 {{ font-size: 13px; color: #aaa; margin-bottom: 10px; }}
+.chart-wrap {{ position: relative; height: 200px; }}
 .cards {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-          gap: 14px; padding: 14px; }}
+          gap: 12px; padding: 12px; }}
 .card {{ background: #16213e; border-radius: 10px; padding: 14px; border: 1px solid #2a2a4a; }}
-.card-header {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }}
+.card.surge {{ border-color: #e74c3c; box-shadow: 0 0 8px rgba(231,76,60,0.3); }}
+.card-header {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }}
 .region-name {{ font-weight: 600; font-size: 14px; }}
 .score {{ font-size: 12px; font-weight: bold; color: #fff; padding: 3px 10px; border-radius: 12px; }}
-.section-title {{ font-size: 11px; color: #888; margin: 10px 0 6px; text-transform: uppercase; letter-spacing: 0.5px; }}
-.stats {{ display: flex; gap: 16px; margin-bottom: 4px; }}
-.stat .num {{ display: block; font-size: 20px; font-weight: bold; color: #4fc3f7; }}
+.trend {{ font-size: 11px; margin-bottom: 10px; color: #aaa; }}
+.trend .up {{ color: #e74c3c; font-weight: bold; }}
+.trend .down {{ color: #27ae60; }}
+.section-title {{ font-size: 11px; color: #888; margin: 8px 0 5px; text-transform: uppercase; letter-spacing: 0.5px; }}
+.stats {{ display: flex; gap: 14px; margin-bottom: 4px; }}
+.stat .num {{ display: block; font-size: 19px; font-weight: bold; color: #4fc3f7; }}
 .stat .num.ship {{ color: #a8d8a8; }}
-.stat .label {{ font-size: 11px; color: #888; }}
+.stat .num.fire {{ color: #ff8c00; }}
+.stat .label {{ font-size: 10px; color: #888; }}
 .alert {{ background: #4a1010; border: 1px solid #c0392b; border-radius: 6px;
-          padding: 8px 10px; font-size: 12px; margin: 8px 0; }}
-.tags {{ display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }}
-.tag {{ font-size: 11px; padding: 3px 8px; border-radius: 4px; }}
+          padding: 7px 10px; font-size: 12px; margin: 6px 0; }}
+.tags {{ display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }}
+.tag {{ font-size: 11px; padding: 2px 7px; border-radius: 4px; }}
 .tag.air {{ background: #0f3460; color: #adf; }}
 .tag.ship {{ background: #0d3d2a; color: #afa; }}
-.divider {{ border: none; border-top: 1px solid #2a2a4a; margin: 10px 0; }}
-footer {{ padding: 12px; font-size: 11px; color: #555; text-align: center; }}
+.divider {{ border: none; border-top: 1px solid #2a2a4a; margin: 8px 0; }}
+footer {{ padding: 10px; font-size: 11px; color: #555; text-align: center; }}
 </style>
 </head>
 <body>
 
 <header>
   <span style="font-size:22px">🌍</span>
-  <h1>世界の緊張地帯 航空・船舶活動モニター</h1>
+  <h1>世界の緊張地帯 航空・船舶・火災モニター</h1>
   <span class="updated">更新: {timestamp}</span>
 </header>
 
 <div class="legend">
   <span><span class="dot" style="background:#4fc3f7"></span>航空機</span>
   <span><span class="dot" style="background:#e74c3c"></span>緊急スコーク</span>
-  <span><span class="dot" style="background:#a8d8a8"></span>船舶（通常）</span>
+  <span><span class="dot" style="background:#a8d8a8"></span>船舶</span>
   <span><span class="dot" style="background:#f39c12"></span>タンカー</span>
-  <span><span class="dot" style="background:#e74c3c"></span>軍用船</span>
   <span><span class="dot" style="background:#ff6600"></span>火災（高信頼）</span>
   <span><span class="dot" style="background:#ffcc00"></span>火災（低信頼）</span>
 </div>
 
 <div id="map"></div>
+
+<div class="chart-section">
+  <h2>📈 地域別スコア推移（過去7日間）</h2>
+  <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+</div>
+
 <div class="cards">{cards_html}</div>
 
-<footer>データソース: OpenSky Network (CC BY 4.0)・AISstream.io — 研究・教育目的のみ</footer>
+<footer>データソース: OpenSky Network (CC BY 4.0) · AISstream.io · NASA FIRMS — 研究・教育目的のみ</footer>
 
 <script>
 const regions  = {regions_json};
 const aircraft = {aircraft_json};
 const ships    = {ships_json};
 const fires    = {fires_json};
+const histData = {history_json};
 
-const map = L.map('map').setView([26, 45], 5);
+// ── 地図（Canvas レンダラーで高速描画）──────────────────────────
+const renderer = L.canvas({{ padding: 0.5 }});
+const map = L.map('map').setView([20, 40], 3);
 L.tileLayer('https://{{s}}.basemaps.cartocdn.com/dark_all/{{z}}/{{x}}/{{y}}{{r}}.png', {{
   attribution: '&copy; OpenStreetMap &copy; CARTO'
 }}).addTo(map);
 
+// 監視地域ボックス
 Object.entries(regions).forEach(([id, r]) => {{
-  const color = r.score > 60 ? '#e74c3c' : r.score > 30 ? '#f39c12' : '#27ae60';
-  L.rectangle(r.bounds, {{ color, weight: 1.5, fillOpacity: 0.08 }}).addTo(map)
-   .bindTooltip(`${{r.name}}　スコア: ${{r.score}}`, {{ sticky: true }});
+  const color = r.surge ? '#e74c3c' : r.score > 60 ? '#e74c3c' : r.score > 30 ? '#f39c12' : '#27ae60';
+  L.rectangle(r.bounds, {{ color, weight: r.surge ? 2 : 1, fillOpacity: r.surge ? 0.15 : 0.06, renderer }})
+   .addTo(map)
+   .bindTooltip(`${{r.name}}　スコア: ${{r.score}}${{r.surge ? ' 🚨急上昇' : ''}}`, {{ sticky: true }});
 }});
 
+// 航空機（Canvas）
 aircraft.forEach(a => {{
   const color = a.emergency ? '#e74c3c' : '#4fc3f7';
-  const alt = a.altitude != null ? Math.round(a.altitude) + ' m' : '不明';
-  L.circleMarker([a.lat, a.lon], {{ radius: 4, color, fillColor: color, fillOpacity: 0.85, weight: 1 }})
-   .bindPopup(`<b>${{a.callsign || a.icao24}}</b><br>国: ${{a.country}}<br>高度: ${{alt}}<br>地域: ${{a.region}}`)
+  const alt   = a.altitude != null ? Math.round(a.altitude) + ' m' : '不明';
+  L.circleMarker([a.lat, a.lon], {{ radius: 3, color, fillColor: color, fillOpacity: 0.8, weight: 1, renderer }})
+   .bindPopup(`<b>${{a.callsign || a.icao24}}</b><br>国: ${{a.country}}<br>高度: ${{alt}}`)
    .addTo(map);
 }});
 
+// 火災（Canvas）
 fires.forEach(f => {{
-  const isHigh  = f.confidence !== 'low';
-  const color   = isHigh ? '#ff6600' : '#ffcc00';
-  const radius  = Math.min(3 + f.frp / 50, 10);
-  L.circleMarker([f.lat, f.lon], {{ radius, color, fillColor: color, fillOpacity: 0.7, weight: 1 }})
-   .bindPopup(`<b>🔥 火災検知</b><br>強度: ${{f.frp}} MW<br>信頼度: ${{f.confidence}}<br>日時: ${{f.acq_date}} ${{f.acq_time}}<br>昼夜: ${{f.daynight === 'D' ? '昼' : '夜'}}<br>地域: ${{f.region}}`)
+  const isHigh = f.confidence !== 'low';
+  const color  = isHigh ? '#ff6600' : '#ffcc00';
+  const radius = Math.min(3 + f.frp / 50, 8);
+  L.circleMarker([f.lat, f.lon], {{ radius, color, fillColor: color, fillOpacity: 0.65, weight: 1, renderer }})
+   .bindPopup(`<b>🔥 火災</b><br>強度: ${{f.frp}} MW<br>信頼度: ${{f.confidence}}<br>${{f.acq_date}} ${{f.acq_time}}`)
    .addTo(map);
 }});
 
+// 船舶（Canvas）
 ships.forEach(s => {{
   const color = s.military ? '#e74c3c' : s.tanker ? '#f39c12' : '#a8d8a8';
-  const sog = s.sog != null ? s.sog.toFixed(1) + ' kt' : '不明';
-  L.circleMarker([s.lat, s.lon], {{ radius: 5, color, fillColor: color, fillOpacity: 0.75, weight: 1 }})
-   .bindPopup(`<b>🚢 ${{s.name || s.mmsi}}</b><br>種別: ${{s.type_label || 'その他'}}<br>旗国: ${{s.flag || '不明'}}<br>速度: ${{sog}}<br>状態: ${{s.nav_status || '不明'}}<br>目的地: ${{s.destination || '不明'}}`)
+  const sog   = s.sog != null ? s.sog.toFixed(1) + ' kt' : '不明';
+  L.circleMarker([s.lat, s.lon], {{ radius: 4, color, fillColor: color, fillOpacity: 0.7, weight: 1, renderer }})
+   .bindPopup(`<b>🚢 ${{s.name || s.mmsi}}</b><br>種別: ${{s.type_label}}<br>速度: ${{sog}}<br>状態: ${{s.nav_status}}`)
    .addTo(map);
+}});
+
+// ── 時系列グラフ ────────────────────────────────────────────────
+const COLORS = [
+  '#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6',
+  '#1abc9c','#e67e22','#34495e','#e91e63','#00bcd4','#8bc34a'
+];
+
+const ctx = document.getElementById('trendChart').getContext('2d');
+new Chart(ctx, {{
+  type: 'line',
+  data: {{
+    labels: histData.labels,
+    datasets: histData.regions.map((r, i) => ({{
+      label:       r.name,
+      data:        r.scores,
+      borderColor: COLORS[i % COLORS.length],
+      backgroundColor: 'transparent',
+      borderWidth: 1.5,
+      pointRadius: 2,
+      tension:     0.3,
+    }})),
+  }},
+  options: {{
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {{
+      legend: {{ labels: {{ color: '#aaa', font: {{ size: 11 }}, boxWidth: 12 }} }},
+    }},
+    scales: {{
+      x: {{ ticks: {{ color: '#666', maxTicksLimit: 12, font: {{ size: 10 }} }}, grid: {{ color: '#2a2a4a' }} }},
+      y: {{ ticks: {{ color: '#666', font: {{ size: 10 }} }}, grid: {{ color: '#2a2a4a' }}, min: 0, max: 100 }},
+    }},
+  }},
 }});
 </script>
 </body>
@@ -126,11 +183,23 @@ def _score_color(score):
     return '#27ae60'
 
 
-def _card_html(region_id, data):
+def _card_html(region_id, data, t):
     region_name = REGIONS[region_id]['name']
     score       = data['anomaly_score']
     ships       = data.get('ships', {})
     fires       = data.get('fires', {})
+    surge_class = 'surge' if t['is_surge'] else ''
+
+    # トレンド表示
+    cp = t['change_pct']
+    if cp > 0:
+        trend_html = f'<div class="trend">ベースライン {t["baseline"]} → <span class="up">▲{cp:+.1f}%</span></div>'
+    elif cp < 0:
+        trend_html = f'<div class="trend">ベースライン {t["baseline"]} → <span class="down">▼{cp:.1f}%</span></div>'
+    else:
+        trend_html = ''
+
+    surge_badge = ' 🚨 急上昇' if t['is_surge'] else ''
 
     air_tags = ''.join(
         f'<span class="tag air">{c} ({n})</span>'
@@ -138,7 +207,7 @@ def _card_html(region_id, data):
     )
     ship_tags = ''.join(
         f'<span class="tag ship">{f} ({n})</span>'
-        for f, n in list(ships.get('flags', {}).items())[:5]
+        for f, n in list(ships.get('flags', {}).items())[:4]
     )
 
     alert = ''
@@ -148,9 +217,6 @@ def _card_html(region_id, data):
 
     ship_section = ''
     if ships.get('count', 0) > 0:
-        dest_str = '　'.join(
-            f'{d}({n})' for d, n in list(ships.get('destinations', {}).items())[:3]
-        )
         ship_section = f'''
 <hr class="divider">
 <div class="section-title">🚢 船舶</div>
@@ -160,15 +226,27 @@ def _card_html(region_id, data):
   <div class="stat"><span class="num ship">{ships["military"]}</span><span class="label">軍用</span></div>
   <div class="stat"><span class="num ship">{ships["anchored"]}</span><span class="label">錨泊</span></div>
 </div>
-{"<div style='font-size:11px;color:#888;margin-top:4px'>目的地: " + dest_str + "</div>" if dest_str else ""}
 <div class="tags">{ship_tags}</div>'''
 
+    fire_section = ''
+    if fires.get('count', 0) > 0:
+        fire_section = f'''
+<hr class="divider">
+<div class="section-title">🔥 火災（NASA FIRMS）</div>
+<div class="stats">
+  <div class="stat"><span class="num fire">{fires["count"]}</span><span class="label">検知数</span></div>
+  <div class="stat"><span class="num fire">{fires["high_conf"]}</span><span class="label">高信頼</span></div>
+  <div class="stat"><span class="num fire">{fires["intense"]}</span><span class="label">高強度</span></div>
+  <div class="stat"><span class="num fire">{fires["total_frp"]}</span><span class="label">総強度MW</span></div>
+</div>'''
+
     return f'''
-<div class="card">
+<div class="card {surge_class}">
   <div class="card-header">
-    <span class="region-name">{region_name}</span>
+    <span class="region-name">{region_name}{surge_badge}</span>
     <span class="score" style="background:{_score_color(score)}">スコア {score}</span>
   </div>
+  {trend_html}
   <div class="section-title">✈️ 航空機</div>
   <div class="stats">
     <div class="stat"><span class="num">{data["count"]}</span><span class="label">航空機</span></div>
@@ -178,25 +256,11 @@ def _card_html(region_id, data):
   {alert}
   <div class="tags">{air_tags}</div>
   {ship_section}
-  {_fire_section_html(fires)}
+  {fire_section}
 </div>'''
 
 
-def _fire_section_html(fires):
-    if not fires or fires.get('count', 0) == 0:
-        return ''
-    return f'''
-<hr class="divider">
-<div class="section-title">🔥 火災・熱源（NASA FIRMS）</div>
-<div class="stats">
-  <div class="stat"><span class="num" style="color:#ff8c00">{fires["count"]}</span><span class="label">検知数</span></div>
-  <div class="stat"><span class="num" style="color:#ff8c00">{fires["high_conf"]}</span><span class="label">高信頼度</span></div>
-  <div class="stat"><span class="num" style="color:#ff8c00">{fires["intense"]}</span><span class="label">高強度</span></div>
-  <div class="stat"><span class="num" style="color:#ff8c00">{fires["total_frp"]}</span><span class="label">総強度MW</span></div>
-</div>'''
-
-
-def _regions_for_map(results):
+def _regions_for_map(results, trend):
     out = {}
     for rid, data in results.items():
         r = REGIONS[rid]
@@ -206,6 +270,7 @@ def _regions_for_map(results):
             'center': r['center'],
             'bounds': [[b['lamin'], b['lomin']], [b['lamax'], b['lomax']]],
             'score':  data['anomaly_score'],
+            'surge':  trend[rid]['is_surge'],
         }
     return out
 
@@ -213,13 +278,11 @@ def _regions_for_map(results):
 def _aircraft_for_map(results):
     out = []
     for rid, data in results.items():
-        region_name = REGIONS[rid]['name']
         for a in data['aircraft']:
             out.append({
                 'lat': a['lat'], 'lon': a['lon'],
                 'icao24': a['icao24'], 'callsign': a['callsign'],
                 'country': a['country'], 'altitude': a['altitude'],
-                'region': region_name,
                 'emergency': a['squawk'] in ('7500', '7600', '7700') if a['squawk'] else False,
             })
     return out
@@ -228,7 +291,6 @@ def _aircraft_for_map(results):
 def _ships_for_map(results):
     out = []
     for rid, data in results.items():
-        region_name = REGIONS[rid]['name']
         for s in data.get('ships', {}).get('ships', []):
             ship_type = s.get('ship_type', 0)
             out.append({
@@ -236,11 +298,9 @@ def _ships_for_map(results):
                 'mmsi': s['mmsi'], 'name': s.get('name', ''),
                 'flag': s.get('flag', ''), 'sog': s.get('sog'),
                 'nav_status': s.get('nav_status', '不明'),
-                'destination': s.get('destination', ''),
                 'type_label': s.get('type_label', 'その他'),
                 'tanker':   80 <= ship_type <= 89,
                 'military': ship_type == 35,
-                'region':   region_name,
             })
     return out
 
@@ -248,7 +308,36 @@ def _ships_for_map(results):
 def _fires_for_map(results):
     out = []
     for rid, data in results.items():
-        region_name = REGIONS[rid]['name']
         for f in data.get('fires', {}).get('fires', []):
-            out.append({**f, 'region': region_name})
+            out.append(f)
     return out
+
+
+def _history_for_chart(history):
+    """Chart.js 用にデータを整形"""
+    entries = history.get('entries', [])
+    if not entries:
+        return {'labels': [], 'regions': []}
+
+    labels = []
+    for e in entries:
+        ts = e['timestamp']
+        # "2026-03-20 01:00:00" → "3/20 01:00"
+        try:
+            dt = ts[5:16].replace('-', '/').replace(' ', ' ')
+            labels.append(dt)
+        except Exception:
+            labels.append(ts)
+
+    region_data = []
+    for rid, region in REGIONS.items():
+        scores = [
+            e['regions'].get(rid, {}).get('anomaly_score', 0)
+            for e in entries
+        ]
+        region_data.append({
+            'name':   region['name'],
+            'scores': scores,
+        })
+
+    return {'labels': labels, 'regions': region_data}
