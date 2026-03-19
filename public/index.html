@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>中東地域 活動モニター</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #1a1a2e; color: #eee; }
+header { padding: 14px 20px; background: #16213e; border-bottom: 1px solid #2a2a4a;
+          display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+header h1 { font-size: 17px; }
+.updated { font-size: 12px; color: #888; margin-left: auto; }
+#map { height: 52vh; }
+.legend { padding: 8px 20px; background: #16213e; border-bottom: 1px solid #2a2a4a;
+           display: flex; gap: 16px; font-size: 12px; color: #aaa; flex-wrap: wrap; }
+.legend span { display: flex; align-items: center; gap: 5px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+          gap: 14px; padding: 14px; }
+.card { background: #16213e; border-radius: 10px; padding: 14px; border: 1px solid #2a2a4a; }
+.card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.region-name { font-weight: 600; font-size: 14px; }
+.score { font-size: 12px; font-weight: bold; color: #fff; padding: 3px 10px; border-radius: 12px; }
+.section-title { font-size: 11px; color: #888; margin: 10px 0 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+.stats { display: flex; gap: 16px; margin-bottom: 4px; }
+.stat .num { display: block; font-size: 20px; font-weight: bold; color: #4fc3f7; }
+.stat .num.ship { color: #a8d8a8; }
+.stat .label { font-size: 11px; color: #888; }
+.alert { background: #4a1010; border: 1px solid #c0392b; border-radius: 6px;
+          padding: 8px 10px; font-size: 12px; margin: 8px 0; }
+.tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.tag { font-size: 11px; padding: 3px 8px; border-radius: 4px; }
+.tag.air { background: #0f3460; color: #adf; }
+.tag.ship { background: #0d3d2a; color: #afa; }
+.divider { border: none; border-top: 1px solid #2a2a4a; margin: 10px 0; }
+footer { padding: 12px; font-size: 11px; color: #555; text-align: center; }
+</style>
+</head>
+<body>
+
+<header>
+  <span style="font-size:22px">🌍</span>
+  <h1>中東地域 航空・船舶活動モニター</h1>
+  <span class="updated">更新: 2026-03-20 01:07:34</span>
+</header>
+
+<div class="legend">
+  <span><span class="dot" style="background:#4fc3f7"></span>航空機</span>
+  <span><span class="dot" style="background:#e74c3c"></span>緊急スコーク</span>
+  <span><span class="dot" style="background:#a8d8a8"></span>船舶（通常）</span>
+  <span><span class="dot" style="background:#f39c12"></span>タンカー</span>
+  <span><span class="dot" style="background:#e74c3c"></span>軍用船</span>
+</div>
+
+<div id="map"></div>
+<div class="cards">
+<div class="card">
+  <div class="card-header">
+    <span class="region-name">紅海</span>
+    <span class="score" style="background:#27ae60">スコア 0.0</span>
+  </div>
+  <div class="section-title">✈️ 航空機</div>
+  <div class="stats">
+    <div class="stat"><span class="num">0</span><span class="label">航空機</span></div>
+    <div class="stat"><span class="num">0</span><span class="label">低高度</span></div>
+    <div class="stat"><span class="num">0</span><span class="label">注目国</span></div>
+  </div>
+  
+  <div class="tags"></div>
+  
+</div>
+<div class="card">
+  <div class="card-header">
+    <span class="region-name">ホルムズ海峡</span>
+    <span class="score" style="background:#27ae60">スコア 20.0</span>
+  </div>
+  <div class="section-title">✈️ 航空機</div>
+  <div class="stats">
+    <div class="stat"><span class="num">10</span><span class="label">航空機</span></div>
+    <div class="stat"><span class="num">2</span><span class="label">低高度</span></div>
+    <div class="stat"><span class="num">6</span><span class="label">注目国</span></div>
+  </div>
+  
+  <div class="tags"><span class="tag air">United Arab Emirates (6)</span><span class="tag air">Republic of Moldova (1)</span><span class="tag air">India (1)</span><span class="tag air">Egypt (1)</span><span class="tag air">Syrian Arab Republic (1)</span></div>
+  
+<hr class="divider">
+<div class="section-title">🚢 船舶</div>
+<div class="stats">
+  <div class="stat"><span class="num ship">4</span><span class="label">船舶</span></div>
+  <div class="stat"><span class="num ship">0</span><span class="label">タンカー</span></div>
+  <div class="stat"><span class="num ship">0</span><span class="label">軍用</span></div>
+  <div class="stat"><span class="num ship">1</span><span class="label">錨泊</span></div>
+</div>
+
+<div class="tags"><span class="tag ship">Unknown (4)</span></div>
+</div>
+<div class="card">
+  <div class="card-header">
+    <span class="region-name">東地中海（イスラエル周辺）</span>
+    <span class="score" style="background:#27ae60">スコア 20.3</span>
+  </div>
+  <div class="section-title">✈️ 航空機</div>
+  <div class="stats">
+    <div class="stat"><span class="num">9</span><span class="label">航空機</span></div>
+    <div class="stat"><span class="num">3</span><span class="label">低高度</span></div>
+    <div class="stat"><span class="num">5</span><span class="label">注目国</span></div>
+  </div>
+  
+  <div class="tags"><span class="tag air">Turkey (2)</span><span class="tag air">Austria (1)</span><span class="tag air">Israel (1)</span><span class="tag air">Qatar (1)</span><span class="tag air">United Kingdom (1)</span></div>
+  
+<hr class="divider">
+<div class="section-title">🚢 船舶</div>
+<div class="stats">
+  <div class="stat"><span class="num ship">17</span><span class="label">船舶</span></div>
+  <div class="stat"><span class="num ship">0</span><span class="label">タンカー</span></div>
+  <div class="stat"><span class="num ship">0</span><span class="label">軍用</span></div>
+  <div class="stat"><span class="num ship">2</span><span class="label">錨泊</span></div>
+</div>
+<div style='font-size:11px;color:#888;margin-top:4px'>目的地: LIMASSOL(1)</div>
+<div class="tags"><span class="tag ship">Unknown (17)</span></div>
+</div>
+<div class="card">
+  <div class="card-header">
+    <span class="region-name">ペルシャ湾</span>
+    <span class="score" style="background:#27ae60">スコア 24.1</span>
+  </div>
+  <div class="section-title">✈️ 航空機</div>
+  <div class="stats">
+    <div class="stat"><span class="num">21</span><span class="label">航空機</span></div>
+    <div class="stat"><span class="num">4</span><span class="label">低高度</span></div>
+    <div class="stat"><span class="num">15</span><span class="label">注目国</span></div>
+  </div>
+  
+  <div class="tags"><span class="tag air">United Arab Emirates (14)</span><span class="tag air">Pakistan (1)</span><span class="tag air">United States (1)</span><span class="tag air">Republic of Moldova (1)</span><span class="tag air">Kingdom of the Netherlands (1)</span></div>
+  
+<hr class="divider">
+<div class="section-title">🚢 船舶</div>
+<div class="stats">
+  <div class="stat"><span class="num ship">9</span><span class="label">船舶</span></div>
+  <div class="stat"><span class="num ship">0</span><span class="label">タンカー</span></div>
+  <div class="stat"><span class="num ship">0</span><span class="label">軍用</span></div>
+  <div class="stat"><span class="num ship">4</span><span class="label">錨泊</span></div>
+</div>
+
+<div class="tags"><span class="tag ship">Unknown (9)</span></div>
+</div></div>
+
+<footer>データソース: OpenSky Network (CC BY 4.0)・AISstream.io — 研究・教育目的のみ</footer>
+
+<script>
+const regions  = {"red_sea": {"name": "紅海", "center": [20.0, 38.0], "bounds": [[12.0, 32.0], [28.0, 44.0]], "score": 0.0}, "strait_of_hormuz": {"name": "ホルムズ海峡", "center": [26.0, 56.5], "bounds": [[24.5, 55.0], [27.5, 58.5]], "score": 20.0}, "eastern_med": {"name": "東地中海（イスラエル周辺）", "center": [32.0, 35.5], "bounds": [[29.0, 33.0], [36.0, 38.0]], "score": 20.3}, "persian_gulf": {"name": "ペルシャ湾", "center": [25.5, 52.0], "bounds": [[23.0, 48.0], [28.0, 57.0]], "score": 24.1}};
+const aircraft = [{"lat": 24.9277, "lon": 56.0747, "icao24": "896479", "callsign": "UAE6AQ", "country": "United Arab Emirates", "altitude": 3078.48, "region": "ホルムズ海峡", "emergency": false}, {"lat": 25.0428, "lon": 55.0234, "icao24": "89644b", "callsign": "UAE5WR", "country": "United Arab Emirates", "altitude": 1333.5, "region": "ホルムズ海峡", "emergency": false}, {"lat": 25.0427, "lon": 55.0235, "icao24": "896642", "callsign": "FDB807", "country": "United Arab Emirates", "altitude": 4953, "region": "ホルムズ海峡", "emergency": false}, {"lat": 25.0428, "lon": 55.0235, "icao24": "896607", "callsign": "FDB645", "country": "United Arab Emirates", "altitude": 9144, "region": "ホルムズ海峡", "emergency": false}, {"lat": 25.0448, "lon": 55.0216, "icao24": "896559", "callsign": "ABY168", "country": "United Arab Emirates", "altitude": 396.24, "region": "ホルムズ海峡", "emergency": false}, {"lat": 25.0428, "lon": 55.0234, "icao24": "89671d", "callsign": "ABY685", "country": "United Arab Emirates", "altitude": 9189.72, "region": "ホルムズ海峡", "emergency": false}, {"lat": 25.0428, "lon": 55.0234, "icao24": "504e8a", "callsign": "FIA5154", "country": "Republic of Moldova", "altitude": 9022.08, "region": "ホルムズ海峡", "emergency": false}, {"lat": 25.0428, "lon": 55.0235, "icao24": "800c88", "callsign": "AIC4310", "country": "India", "altitude": 6172.2, "region": "ホルムズ海峡", "emergency": false}, {"lat": 25.0428, "lon": 55.0234, "icao24": "010108", "callsign": "MSR1915", "country": "Egypt", "altitude": 9753.6, "region": "ホルムズ海峡", "emergency": false}, {"lat": 25.3219, "lon": 55.5255, "icao24": "77cf32", "callsign": "", "country": "Syrian Arab Republic", "altitude": null, "region": "ホルムズ海峡", "emergency": false}, {"lat": 34.6525, "lon": 33.3393, "icao24": "440058", "callsign": "BCS7277", "country": "Austria", "altitude": 11620.5, "region": "東地中海（イスラエル周辺）", "emergency": false}, {"lat": 35.1351, "lon": 33.5567, "icao24": "4bb295", "callsign": "TKJ5AR", "country": "Turkey", "altitude": 373.38, "region": "東地中海（イスラエル周辺）", "emergency": false}, {"lat": 33.3942, "lon": 34.2208, "icao24": "738287", "callsign": "ISR336", "country": "Israel", "altitude": 365.76, "region": "東地中海（イスラエル周辺）", "emergency": false}, {"lat": 29.4261, "lon": 33.3081, "icao24": "06a2ed", "callsign": "QTR5Q", "country": "Qatar", "altitude": 11574.78, "region": "東地中海（イスラエル周辺）", "emergency": false}, {"lat": 35.3647, "lon": 33.7847, "icao24": "4bb867", "callsign": "PGT1984", "country": "Turkey", "altitude": 2788.92, "region": "東地中海（イスラエル周辺）", "emergency": false}, {"lat": 30.978, "lon": 33.3005, "icao24": "4245de", "callsign": "VPCFM", "country": "United Kingdom", "altitude": 13106.4, "region": "東地中海（イスラエル周辺）", "emergency": false}, {"lat": 29.9977, "lon": 33.9951, "icao24": "01023f", "callsign": "RSX3123", "country": "Egypt", "altitude": 10363.2, "region": "東地中海（イスラエル周辺）", "emergency": false}, {"lat": 33.1235, "lon": 34.089, "icao24": "717cce", "callsign": "KNE305", "country": "Saudi Arabia", "altitude": 11582.4, "region": "東地中海（イスラエル周辺）", "emergency": false}, {"lat": 34.7491, "lon": 33.1808, "icao24": "4c01e3", "callsign": "ASL58C", "country": "Serbia", "altitude": 7741.92, "region": "東地中海（イスラエル周辺）", "emergency": false}, {"lat": 23.0798, "lon": 54.7334, "icao24": "896198", "callsign": "UAE2W", "country": "United Arab Emirates", "altitude": 9898.38, "region": "ペルシャ湾", "emergency": false}, {"lat": 24.0745, "lon": 55.772, "icao24": "896534", "callsign": "ETD263", "country": "United Arab Emirates", "altitude": 5425.44, "region": "ペルシャ湾", "emergency": false}, {"lat": 25.002, "lon": 55.9849, "icao24": "896479", "callsign": "UAE6AQ", "country": "United Arab Emirates", "altitude": 2484.12, "region": "ペルシャ湾", "emergency": false}, {"lat": 25.0428, "lon": 55.0234, "icao24": "89644b", "callsign": "UAE5WR", "country": "United Arab Emirates", "altitude": 1333.5, "region": "ペルシャ湾", "emergency": false}, {"lat": 23.1912, "lon": 50.1643, "icao24": "896434", "callsign": "ABY148", "country": "United Arab Emirates", "altitude": 10668, "region": "ペルシャ湾", "emergency": false}, {"lat": 24.0745, "lon": 55.772, "icao24": "8964d9", "callsign": "ABY252", "country": "United Arab Emirates", "altitude": 1615.44, "region": "ペルシャ湾", "emergency": false}, {"lat": 25.0427, "lon": 55.0235, "icao24": "896642", "callsign": "FDB807", "country": "United Arab Emirates", "altitude": 4953, "region": "ペルシャ湾", "emergency": false}, {"lat": 25.0428, "lon": 55.0235, "icao24": "896607", "callsign": "FDB645", "country": "United Arab Emirates", "altitude": 9144, "region": "ペルシャ湾", "emergency": false}, {"lat": 23.0819, "lon": 50.8809, "icao24": "896582", "callsign": "ABY336", "country": "United Arab Emirates", "altitude": 11262.36, "region": "ペルシャ湾", "emergency": false}, {"lat": 25.0448, "lon": 55.0216, "icao24": "896559", "callsign": "ABY168", "country": "United Arab Emirates", "altitude": 396.24, "region": "ペルシャ湾", "emergency": false}, {"lat": 23.0312, "lon": 53.1273, "icao24": "8964b2", "callsign": "UAE7CN", "country": "United Arab Emirates", "altitude": 12496.8, "region": "ペルシャ湾", "emergency": false}, {"lat": 25.0428, "lon": 55.0234, "icao24": "89671d", "callsign": "ABY685", "country": "United Arab Emirates", "altitude": 9189.72, "region": "ペルシャ湾", "emergency": false}, {"lat": 24.0745, "lon": 55.772, "icao24": "8965d3", "callsign": "FDB9RF", "country": "United Arab Emirates", "altitude": 8084.82, "region": "ペルシャ湾", "emergency": false}, {"lat": 23.2062, "lon": 50.0644, "icao24": "8965e1", "callsign": "ADY384", "country": "United Arab Emirates", "altitude": 11894.82, "region": "ペルシャ湾", "emergency": false}, {"lat": 23.1474, "lon": 48.7413, "icao24": "760a08", "callsign": "SIF729", "country": "Pakistan", "altitude": 10066.02, "region": "ペルシャ湾", "emergency": false}, {"lat": 24.0748, "lon": 55.7733, "icao24": "a6df68", "callsign": "CLY769", "country": "United States", "altitude": 11582.4, "region": "ペルシャ湾", "emergency": false}, {"lat": 25.0428, "lon": 55.0234, "icao24": "504e8a", "callsign": "FIA5154", "country": "Republic of Moldova", "altitude": 9471.66, "region": "ペルシャ湾", "emergency": false}, {"lat": 24.0745, "lon": 55.7721, "icao24": "484347", "callsign": "244P4JIM", "country": "Kingdom of the Netherlands", "altitude": 12192, "region": "ペルシャ湾", "emergency": false}, {"lat": 24.0745, "lon": 55.772, "icao24": "800c88", "callsign": "AIC4310", "country": "India", "altitude": 7018.02, "region": "ペルシャ湾", "emergency": false}, {"lat": 25.0428, "lon": 55.0234, "icao24": "010108", "callsign": "MSR1915", "country": "Egypt", "altitude": 9753.6, "region": "ペルシャ湾", "emergency": false}, {"lat": 25.3219, "lon": 55.5255, "icao24": "77cf32", "callsign": "", "country": "Syrian Arab Republic", "altitude": null, "region": "ペルシャ湾", "emergency": false}];
+const ships    = [{"lat": 25.178330000000003, "lon": 55.212845, "mmsi": 244030951, "name": "GTO 202", "flag": "", "sog": 0, "nav_status": "操縦制限", "destination": "", "type_label": "その他", "tanker": false, "military": false, "region": "ホルムズ海峡"}, {"lat": 25.273685, "lon": 55.25872666666667, "mmsi": 341256002, "name": "", "flag": "", "sog": 0, "nav_status": "係留中", "destination": "", "type_label": "その他", "tanker": false, "military": false, "region": "ホルムズ海峡"}, {"lat": 25.180408333333332, "lon": 55.21319333333334, "mmsi": 470010441, "name": "BLUESHARK 14", "flag": "", "sog": 0.3, "nav_status": "航行中", "destination": "", "type_label": "その他", "tanker": false, "military": false, "region": "ホルムズ海峡"}, {"lat": 25.373683333333336, "lon": 55.073925, "mmsi": 538007324, "name": "TOPAZ VOLGA", "flag": "", "sog": 0.3, "nav_status": "錨泊中", "destination": "", "type_label": "その他", "tanker": false, "military": false, "region": "ホルムズ海峡"}, {"lat": 34.66645833333334, "lon": 33.04109666666667, "mmsi": 319169800, "name": "HOLIDAY", "flag": "", "sog": 0, "nav_status": "係留中", "destination": "", "type_label": "その他", "tanker": false, "military": false, "region": "東地中海（イスラエル周辺）"}, {"lat": 34.64678166666667, "lon": 33.00723833333333, "mmsi": 636024290, "name": "EDT ATHENA", "flag": "", "sog": 0, "nav_status": "操縦制限", "destination": "LIMASSOL", "type_label": "その他", "tanker": false, "military": false, "region": "東地中海（イスラエル周辺）"}, {"lat": 34.428675, "lon": 33.345888333333335, "mmsi": 636022950, "name": "KINGSTON", "flag": "", "sog": 0.8, "nav_status": "航行中", "destination": "", "type_label": "その他", "tanker": false, "military": false, "region": "東地中海（イスラエル周辺）"}, {"lat": 34.453745000000005, "lon": 33.463948333333335, "mmsi": 563112000, "name": "KILBURN", "flag": "", "sog": 0.8, "nav_status": "航行中", "destination": "", "type_label": "その他", "tanker": false, "military": false, "region": "東地中海（イスラエル周辺）"}, {"lat": 34.71867833333333, "lon": 33.318315, "mmsi": 212319000, "name": "VTS KERYNEIA", "flag": "", "sog": 0, "nav_status": "航行中", "destination": "", "type_label": "その他", "tanker": false, "military": false, "region": "東地中海（イスラエル周辺）"}, {"lat": 34.64498833333334, "lon": 33.00889, "mmsi": 212230000, "name": "EDT ARGONAUT", "flag": "", "sog": 0, "nav_status": "係留中", "destination": "", "type_label": "その他", "tanker": false, "military": false, "region": "東地中海（イスラエル周辺）"}, {"lat": 34.65101, "lon": 33.016675, "mmsi": 209166000, "name": "P&O KALYPSO", "flag": "", "sog": 0, "nav_status": "航行中", "destination": "", "type_label": "その他", "tanker": false, "military": false, "region": "東地中海（イスラエル周辺）"}, {"lat": 34.54836833333333, "lon": 33.12654333333333, "mmsi": 372961000, "name": "GAZ SERENITY", "flag": "", "sog": 11.9, "nav_status": "航行中", "destination": "", "type_label": "その他", "tanker": false, "military": false, "region": "東地中海（イスラエル周辺）"}, {"lat": 34.665184999999994, "lon": 33.041090000000004, "mmsi": 210405000, "name": "ULTENCY", "flag": "", "sog": 0, "nav_status": "係留中", "destination": "", "type_label": "その他", "tanker": false, "military": false, "region": "東地中海（イスラエル周辺）"}, {"lat": 34.67978166666667, "lon": 33.072334999999995, "mmsi": 210613000, "name": "ISLAND RUBY", "flag": "", "sog": 0.1, "nav_status": "錨泊中", "destination": "", "type_label": "その他", "tanker": false, "military": false, "region": "東地中海（イスラエル周辺）"}, {"lat": 34.190780000000004, "lon": 34.268768333333334, "mmsi": 215231000, "name": "OSTRA", "flag": "", "sog": 8, "nav_status": "航行中", "destination": "", "type_label": "その他", "tanker": false, "military": false, "region": "東地中海（イスラエル周辺）"}, {"lat": 34.68255333333333, "lon": 33.12826333333333, "mmsi": 210380000, "name": "MFV RANIA", "flag": "", "sog": 2.6, "nav_status": "不明", "destination": "", "type_label": "その他", "tanker": false, "military": false, "region": "東地中海（イスラエル周辺）"}, {"lat": 34.64534666666667, "lon": 33.014966666666666, "mmsi": 375472000, "name": "MAMTA", "flag": "", "sog": 0, "nav_status": "係留中", "destination": "", "type_label": "その他", "tanker": false, "military": false, "region": "東地中海（イスラエル周辺）"}, {"lat": 34.655255000000004, "lon": 33.019765, "mmsi": 356393000, "name": "VENTUS", "flag": "", "sog": 0, "nav_status": "錨泊中", "destination": "", "type_label": "その他", "tanker": false, "military": false, "region": "東地中海（イスラエル周辺）"}, {"lat": 34.64577, "lon": 33.00785666666666, "mmsi": 236719000, "name": "SELENE ROUGE", "flag": "", "sog": 0, "nav_status": "航行中", "destination": "", "type_label": "その他", "tanker": false, "military": false, "region": "東地中海（イスラエル周辺）"}, {"lat": 34.58318333333333, "lon": 33.06186666666667, "mmsi": 210719000, "name": "PATRIS", "flag": "", "sog": 15.5, "nav_status": "航行中", "destination": "", "type_label": "その他", "tanker": false, "military": false, "region": "東地中海（イスラエル周辺）"}, {"lat": 33.679965, "lon": 34.33607, "mmsi": 241359000, "name": "NISSOS CHRISTIANA", "flag": "", "sog": 12, "nav_status": "航行中", "destination": "", "type_label": "その他", "tanker": false, "military": false, "region": "東地中海（イスラエル周辺）"}, {"lat": 25.169453333333333, "lon": 55.186143333333334, "mmsi": 419002003, "name": "VOLVOX OLYMPIA", "flag": "", "sog": 0, "nav_status": "錨泊中", "destination": "", "type_label": "その他", "tanker": false, "military": false, "region": "ペルシャ湾"}, {"lat": 25.273666666666667, "lon": 55.258718333333334, "mmsi": 341256002, "name": "", "flag": "", "sog": 0.2, "nav_status": "係留中", "destination": "", "type_label": "その他", "tanker": false, "military": false, "region": "ペルシャ湾"}, {"lat": 24.074585000000003, "lon": 55.772005, "mmsi": 620212000, "name": "JABAL ALI 1", "flag": "", "sog": 0, "nav_status": "錨泊中", "destination": "", "type_label": "その他", "tanker": false, "military": false, "region": "ペルシャ湾"}, {"lat": 25.493885, "lon": 54.826573333333336, "mmsi": 566095000, "name": "TAURUS LEADER", "flag": "", "sog": 1.4, "nav_status": "航行中", "destination": "", "type_label": "その他", "tanker": false, "military": false, "region": "ペルシャ湾"}, {"lat": 25.68809666666667, "lon": 54.904758333333334, "mmsi": 311001914, "name": "NOBLER", "flag": "", "sog": 1.6, "nav_status": "錨泊中", "destination": "", "type_label": "その他", "tanker": false, "military": false, "region": "ペルシャ湾"}, {"lat": 25.262088333333335, "lon": 55.274815, "mmsi": 319187800, "name": "PLATINUM", "flag": "", "sog": 0.2, "nav_status": "係留中", "destination": "", "type_label": "その他", "tanker": false, "military": false, "region": "ペルシャ湾"}, {"lat": 24.074475, "lon": 55.77204666666667, "mmsi": 470198000, "name": "SEASHINE 1", "flag": "", "sog": 0, "nav_status": "不明", "destination": "", "type_label": "その他", "tanker": false, "military": false, "region": "ペルシャ湾"}, {"lat": 24.074828333333336, "lon": 55.77191666666667, "mmsi": 470080000, "name": "", "flag": "", "sog": 0, "nav_status": "航行中", "destination": "", "type_label": "その他", "tanker": false, "military": false, "region": "ペルシャ湾"}, {"lat": 24.07492166666667, "lon": 55.771544999999996, "mmsi": 563232600, "name": "PHOENIX", "flag": "", "sog": 0.1, "nav_status": "錨泊中", "destination": "", "type_label": "その他", "tanker": false, "military": false, "region": "ペルシャ湾"}];
+
+const map = L.map('map').setView([26, 45], 5);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; OpenStreetMap &copy; CARTO'
+}).addTo(map);
+
+Object.entries(regions).forEach(([id, r]) => {
+  const color = r.score > 60 ? '#e74c3c' : r.score > 30 ? '#f39c12' : '#27ae60';
+  L.rectangle(r.bounds, { color, weight: 1.5, fillOpacity: 0.08 }).addTo(map)
+   .bindTooltip(`${r.name}　スコア: ${r.score}`, { sticky: true });
+});
+
+aircraft.forEach(a => {
+  const color = a.emergency ? '#e74c3c' : '#4fc3f7';
+  const alt = a.altitude != null ? Math.round(a.altitude) + ' m' : '不明';
+  L.circleMarker([a.lat, a.lon], { radius: 4, color, fillColor: color, fillOpacity: 0.85, weight: 1 })
+   .bindPopup(`<b>${a.callsign || a.icao24}</b><br>国: ${a.country}<br>高度: ${alt}<br>地域: ${a.region}`)
+   .addTo(map);
+});
+
+ships.forEach(s => {
+  const color = s.military ? '#e74c3c' : s.tanker ? '#f39c12' : '#a8d8a8';
+  const sog = s.sog != null ? s.sog.toFixed(1) + ' kt' : '不明';
+  L.circleMarker([s.lat, s.lon], { radius: 5, color, fillColor: color, fillOpacity: 0.75, weight: 1 })
+   .bindPopup(`<b>🚢 ${s.name || s.mmsi}</b><br>種別: ${s.type_label || 'その他'}<br>旗国: ${s.flag || '不明'}<br>速度: ${sog}<br>状態: ${s.nav_status || '不明'}<br>目的地: ${s.destination || '不明'}`)
+   .addTo(map);
+});
+</script>
+</body>
+</html>
