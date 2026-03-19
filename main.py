@@ -13,7 +13,7 @@ from report import generate
 AISSTREAM_API_KEY = os.environ.get('AISSTREAM_API_KEY', '')
 
 # 船舶データ収集時間（秒）。長いほど多くの船を捕捉できる
-SHIP_COLLECT_SECONDS = 30
+SHIP_COLLECT_SECONDS = 120
 
 
 def main():
