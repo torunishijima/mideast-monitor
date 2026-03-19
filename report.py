@@ -74,8 +74,11 @@ footer {{ padding: 10px; font-size: 11px; color: #555; text-align: center; }}
   <span><span class="dot" style="background:#e74c3c"></span>緊急スコーク</span>
   <span><span class="dot" style="background:#a8d8a8"></span>船舶</span>
   <span><span class="dot" style="background:#f39c12"></span>タンカー</span>
-  <span><span class="dot" style="background:#ff6600"></span>火災（高信頼）</span>
-  <span><span class="dot" style="background:#ffcc00"></span>火災（低信頼）</span>
+  <span><span class="dot" style="background:#661100"></span>火災 〜10MW</span>
+  <span><span class="dot" style="background:#cc4400"></span>火災 10〜50MW</span>
+  <span><span class="dot" style="background:#ff8800"></span>火災 50〜200MW</span>
+  <span><span class="dot" style="background:#ffff00"></span>火災 200〜1000MW</span>
+  <span><span class="dot" style="background:#ffffff"></span>火災 1000MW〜</span>
 </div>
 
 <div id="map"></div>
@@ -120,12 +123,18 @@ aircraft.forEach(a => {{
    .addTo(map);
 }});
 
-// 火災（Canvas）
+// 火災（Canvas）- FRPで5段階色分け
+function fireColor(frp) {{
+  if (frp >= 1000) return '#ffffff';  // 白：超大規模
+  if (frp >= 200)  return '#ffff00';  // 黄：大規模山火事
+  if (frp >= 50)   return '#ff8800';  // 明オレンジ：中規模
+  if (frp >= 10)   return '#cc4400';  // オレンジ：農業焼却等
+  return '#661100';                   // 暗い茶：ガスフレア・微小
+}}
 fires.forEach(f => {{
-  const isHigh = f.confidence !== 'low';
-  const color  = isHigh ? '#ff6600' : '#ffcc00';
-  const radius = Math.min(3 + f.frp / 50, 8);
-  L.circleMarker([f.lat, f.lon], {{ radius, color, fillColor: color, fillOpacity: 0.65, weight: 1, renderer }})
+  const color  = fireColor(f.frp);
+  const radius = f.frp >= 1000 ? 8 : f.frp >= 200 ? 6 : f.frp >= 50 ? 5 : f.frp >= 10 ? 4 : 3;
+  L.circleMarker([f.lat, f.lon], {{ radius, color, fillColor: color, fillOpacity: 0.8, weight: 0, renderer }})
    .bindPopup(`<b>🔥 火災</b><br>強度: ${{f.frp}} MW<br>信頼度: ${{f.confidence}}<br>${{f.acq_date}} ${{f.acq_time}}`)
    .addTo(map);
 }});
