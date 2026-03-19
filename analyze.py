@@ -3,31 +3,37 @@ from collections import Counter
 from config import NOTABLE_COUNTRIES, EMERGENCY_SQUAWKS, LOW_ALTITUDE_THRESHOLD
 
 
-def analyze(aircraft_list, ship_list=None):
+def analyze(aircraft_list, ship_list=None, fire_list=None):
     """
     異常スコア（0〜100）の計算:
-    - 注目国の航空機比率が高い → スコア上昇
-    - 低高度飛行が多い        → スコア上昇
-    - 緊急スコーク            → スコア大幅上昇
-    - タンカー・軍用船が多い  → スコア上昇
-    - 錨泊船が多い（通過回避）→ スコア上昇
+    - 注目国の航空機比率が高い   → スコア上昇
+    - 低高度飛行が多い           → スコア上昇
+    - 緊急スコーク               → スコア大幅上昇
+    - タンカー・軍用船が多い     → スコア上昇
+    - 錨泊船が多い（通過回避）   → スコア上昇
+    - 高強度火災（FRP高い）が多い → スコア上昇
     """
     ship_list = ship_list or []
+    fire_list = fire_list or []
 
     aircraft_result = _analyze_aircraft(aircraft_list)
     ship_result     = _analyze_ships(ship_list)
+    fire_result     = _analyze_fires(fire_list)
 
     # 複合スコア
     a_score = aircraft_result['anomaly_score']
     s_score = ship_result['anomaly_score']
-    combined = min(round(a_score * 0.6 + s_score * 0.4, 1), 100.0)
+    f_score = fire_result['anomaly_score']
+    combined = min(round(a_score * 0.4 + s_score * 0.3 + f_score * 0.3, 1), 100.0)
 
     return {
         **aircraft_result,
-        'ships':              ship_result,
-        'anomaly_score':      combined,
-        'aircraft_score':     a_score,
-        'ship_score':         s_score,
+        'ships':          ship_result,
+        'fires':          fire_result,
+        'anomaly_score':  combined,
+        'aircraft_score': a_score,
+        'ship_score':     s_score,
+        'fire_score':     f_score,
     }
 
 
@@ -132,4 +138,37 @@ def _empty_ships():
     return {
         'count': 0, 'tankers': 0, 'military': 0, 'anchored': 0,
         'flags': {}, 'destinations': {}, 'anomaly_score': 0.0, 'ships': [],
+    }
+
+
+def _analyze_fires(fire_list):
+    if not fire_list:
+        return _empty_fires()
+
+    # 高信頼度の火災のみ（low は除外）
+    high_conf = [f for f in fire_list if f.get('confidence', '').lower() != 'low']
+    # 高強度火災（FRP 50MW以上）
+    intense   = [f for f in high_conf if f.get('frp', 0) >= 50]
+    total_frp = sum(f.get('frp', 0) for f in high_conf)
+
+    # スコア: 高信頼度の件数と強度で計算
+    score = 0.0
+    score += min(len(high_conf) * 2, 40)   # 件数（最大40点）
+    score += min(len(intense) * 5, 40)      # 高強度（最大40点）
+    score += min(total_frp / 500, 20)       # 総強度（最大20点）
+
+    return {
+        'count':      len(fire_list),
+        'high_conf':  len(high_conf),
+        'intense':    len(intense),
+        'total_frp':  round(total_frp, 1),
+        'anomaly_score': min(round(score, 1), 100.0),
+        'fires':      fire_list,
+    }
+
+
+def _empty_fires():
+    return {
+        'count': 0, 'high_conf': 0, 'intense': 0,
+        'total_frp': 0.0, 'anomaly_score': 0.0, 'fires': [],
     }

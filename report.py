@@ -7,6 +7,7 @@ def generate(results, timestamp):
     regions_json  = json.dumps(_regions_for_map(results), ensure_ascii=False)
     aircraft_json = json.dumps(_aircraft_for_map(results), ensure_ascii=False)
     ships_json    = json.dumps(_ships_for_map(results), ensure_ascii=False)
+    fires_json    = json.dumps(_fires_for_map(results), ensure_ascii=False)
     cards_html    = ''.join(_card_html(rid, results[rid]) for rid in results)
 
     return f'''<!DOCTYPE html>
@@ -64,6 +65,8 @@ footer {{ padding: 12px; font-size: 11px; color: #555; text-align: center; }}
   <span><span class="dot" style="background:#a8d8a8"></span>船舶（通常）</span>
   <span><span class="dot" style="background:#f39c12"></span>タンカー</span>
   <span><span class="dot" style="background:#e74c3c"></span>軍用船</span>
+  <span><span class="dot" style="background:#ff6600"></span>火災（高信頼）</span>
+  <span><span class="dot" style="background:#ffcc00"></span>火災（低信頼）</span>
 </div>
 
 <div id="map"></div>
@@ -75,6 +78,7 @@ footer {{ padding: 12px; font-size: 11px; color: #555; text-align: center; }}
 const regions  = {regions_json};
 const aircraft = {aircraft_json};
 const ships    = {ships_json};
+const fires    = {fires_json};
 
 const map = L.map('map').setView([26, 45], 5);
 L.tileLayer('https://{{s}}.basemaps.cartocdn.com/dark_all/{{z}}/{{x}}/{{y}}{{r}}.png', {{
@@ -92,6 +96,15 @@ aircraft.forEach(a => {{
   const alt = a.altitude != null ? Math.round(a.altitude) + ' m' : '不明';
   L.circleMarker([a.lat, a.lon], {{ radius: 4, color, fillColor: color, fillOpacity: 0.85, weight: 1 }})
    .bindPopup(`<b>${{a.callsign || a.icao24}}</b><br>国: ${{a.country}}<br>高度: ${{alt}}<br>地域: ${{a.region}}`)
+   .addTo(map);
+}});
+
+fires.forEach(f => {{
+  const isHigh  = f.confidence !== 'low';
+  const color   = isHigh ? '#ff6600' : '#ffcc00';
+  const radius  = Math.min(3 + f.frp / 50, 10);
+  L.circleMarker([f.lat, f.lon], {{ radius, color, fillColor: color, fillOpacity: 0.7, weight: 1 }})
+   .bindPopup(`<b>🔥 火災検知</b><br>強度: ${{f.frp}} MW<br>信頼度: ${{f.confidence}}<br>日時: ${{f.acq_date}} ${{f.acq_time}}<br>昼夜: ${{f.daynight === 'D' ? '昼' : '夜'}}<br>地域: ${{f.region}}`)
    .addTo(map);
 }});
 
@@ -117,6 +130,7 @@ def _card_html(region_id, data):
     region_name = REGIONS[region_id]['name']
     score       = data['anomaly_score']
     ships       = data.get('ships', {})
+    fires       = data.get('fires', {})
 
     air_tags = ''.join(
         f'<span class="tag air">{c} ({n})</span>'
@@ -164,6 +178,21 @@ def _card_html(region_id, data):
   {alert}
   <div class="tags">{air_tags}</div>
   {ship_section}
+  {_fire_section_html(fires)}
+</div>'''
+
+
+def _fire_section_html(fires):
+    if not fires or fires.get('count', 0) == 0:
+        return ''
+    return f'''
+<hr class="divider">
+<div class="section-title">🔥 火災・熱源（NASA FIRMS）</div>
+<div class="stats">
+  <div class="stat"><span class="num" style="color:#ff8c00">{fires["count"]}</span><span class="label">検知数</span></div>
+  <div class="stat"><span class="num" style="color:#ff8c00">{fires["high_conf"]}</span><span class="label">高信頼度</span></div>
+  <div class="stat"><span class="num" style="color:#ff8c00">{fires["intense"]}</span><span class="label">高強度</span></div>
+  <div class="stat"><span class="num" style="color:#ff8c00">{fires["total_frp"]}</span><span class="label">総強度MW</span></div>
 </div>'''
 
 
@@ -213,4 +242,13 @@ def _ships_for_map(results):
                 'military': ship_type == 35,
                 'region':   region_name,
             })
+    return out
+
+
+def _fires_for_map(results):
+    out = []
+    for rid, data in results.items():
+        region_name = REGIONS[rid]['name']
+        for f in data.get('fires', {}).get('fires', []):
+            out.append({**f, 'region': region_name})
     return out

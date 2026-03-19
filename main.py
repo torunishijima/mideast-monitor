@@ -5,13 +5,14 @@ import time
 import datetime
 
 from config import REGIONS
-from fetch import fetch_all_aircraft, fetch_all_ships
+from fetch import fetch_all_aircraft, fetch_all_ships, fetch_all_fires
 from analyze import analyze
 from report import generate
 
-AISSTREAM_API_KEY = os.environ.get('AISSTREAM_API_KEY', '')
-OPENSKY_USERNAME  = os.environ.get('OPENSKY_USERNAME', '')
-OPENSKY_PASSWORD  = os.environ.get('OPENSKY_PASSWORD', '')
+AISSTREAM_API_KEY  = os.environ.get('AISSTREAM_API_KEY', '')
+OPENSKY_USERNAME   = os.environ.get('OPENSKY_USERNAME', '')
+OPENSKY_PASSWORD   = os.environ.get('OPENSKY_PASSWORD', '')
+NASA_FIRMS_MAP_KEY = os.environ.get('NASA_FIRMS_MAP_KEY', '')
 SHIP_COLLECT_SECONDS = 120
 
 
@@ -19,11 +20,12 @@ def main():
     timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     print(f'🌍 世界モニタリング開始  {timestamp}\n')
 
-    # 航空機・船舶を並列取得（それぞれ1回ずつ）
+    # 航空機・船舶・火災を取得（航空機と火災は高速、船舶は120秒）
     aircraft_by_region = fetch_all_aircraft(
         username=OPENSKY_USERNAME,
         password=OPENSKY_PASSWORD,
     )
+    fires_by_region = fetch_all_fires(map_key=NASA_FIRMS_MAP_KEY)
     ships_by_region = fetch_all_ships(
         api_key=AISSTREAM_API_KEY,
         duration=SHIP_COLLECT_SECONDS,
@@ -35,12 +37,13 @@ def main():
     for region_id, region in REGIONS.items():
         aircraft = aircraft_by_region.get(region_id, [])
         ships    = ships_by_region.get(region_id, [])
-        result   = analyze(aircraft, ships)
+        fires    = fires_by_region.get(region_id, [])
+        result   = analyze(aircraft, ships, fires)
         results[region_id] = result
 
         score     = result['anomaly_score']
         indicator = '🔴' if score > 60 else '🟡' if score > 30 else '🟢'
-        print(f'{indicator} {region["name"]}: 航空機 {len(aircraft)}機 / 船舶 {len(ships)}隻 / スコア {score}')
+        print(f'{indicator} {region["name"]}: 航空機 {len(aircraft)}機 / 船舶 {len(ships)}隻 / 火災 {len(fires)}件 / スコア {score}')
 
         if result['emergency']:
             for e in result['emergency']:

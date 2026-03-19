@@ -1,7 +1,10 @@
 """データ取得モジュール
 - 航空機: OpenSky Network（全世界を1回取得）
 - 船舶: AISstream.io（全地域を1接続で同時取得）
+- 火災: NASA FIRMS（衛星による熱源検知）
 """
+import csv
+import io
 import os
 import json
 import asyncio
@@ -169,4 +172,69 @@ def _assign_ships_to_regions(ships_dict):
             b = region['bounds']
             if b['lamin'] <= lat <= b['lamax'] and b['lomin'] <= lon <= b['lomax']:
                 result[rid].append(ship)
+    return result
+
+
+# ── NASA FIRMS 火災・熱源データ ──────────────────────────────────────────────
+
+def fetch_all_fires(map_key=None, day_range=1):
+    """
+    NASA FIRMS（VIIRS SNPP）から全地域の火災・熱源データを取得して振り分け
+    - map_key: https://firms.modaps.eosdis.nasa.gov/api/map_key/ で無料取得
+    - day_range: 過去何日分を取得するか（1〜10）
+    - confidence: low / nominal / high
+    """
+    map_key = map_key or os.environ.get('NASA_FIRMS_MAP_KEY')
+    if not map_key:
+        return {rid: [] for rid in REGIONS}
+
+    print('🔥  NASA FIRMS: 全地域の火災データ取得中...')
+    all_fires = []
+    seen = set()
+
+    for rid, region in REGIONS.items():
+        b = region['bounds']
+        # area: W,S,E,N
+        area = f"{b['lomin']},{b['lamin']},{b['lomax']},{b['lamax']}"
+        url  = f"https://firms.modaps.eosdis.nasa.gov/api/area/csv/{map_key}/VIIRS_SNPP_NRT/{area}/{day_range}"
+        try:
+            resp = requests.get(url, timeout=15)
+            if resp.status_code == 200 and 'latitude' in resp.text:
+                reader = csv.DictReader(io.StringIO(resp.text))
+                for row in reader:
+                    key = (row['latitude'], row['longitude'], row['acq_date'], row['acq_time'])
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    try:
+                        all_fires.append({
+                            'lat':        float(row['latitude']),
+                            'lon':        float(row['longitude']),
+                            'frp':        float(row.get('frp', 0)),      # 火災強度（MW）
+                            'confidence': row.get('confidence', ''),
+                            'acq_date':   row.get('acq_date', ''),
+                            'acq_time':   row.get('acq_time', ''),
+                            'daynight':   row.get('daynight', ''),
+                        })
+                    except (ValueError, KeyError):
+                        continue
+            elif resp.status_code == 429:
+                print('   ⚠ FIRMS API レート制限')
+            elif resp.status_code != 200:
+                print(f'   ⚠ FIRMS API エラー: {resp.status_code}')
+        except Exception as e:
+            print(f'   ⚠ FIRMS 取得失敗 ({rid}): {e}')
+
+    print(f'   → 全世界 {len(all_fires)} 件の熱源検知')
+    return _assign_fires_to_regions(all_fires)
+
+
+def _assign_fires_to_regions(fires):
+    result = {rid: [] for rid in REGIONS}
+    for fire in fires:
+        lat, lon = fire['lat'], fire['lon']
+        for rid, region in REGIONS.items():
+            b = region['bounds']
+            if b['lamin'] <= lat <= b['lamax'] and b['lomin'] <= lon <= b['lomax']:
+                result[rid].append(fire)
     return result
