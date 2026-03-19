@@ -9,8 +9,8 @@ import requests
 import websockets
 
 
-def fetch_aircraft(bounds):
-    """OpenSky Network から航空機データを取得"""
+def fetch_aircraft(bounds, username=None, password=None):
+    """OpenSky Network から航空機データを取得（認証ありで精度向上）"""
     url = 'https://opensky-network.org/api/states/all'
     params = {
         'lamin': bounds['lamin'],
@@ -18,8 +18,9 @@ def fetch_aircraft(bounds):
         'lamax': bounds['lamax'],
         'lomax': bounds['lomax'],
     }
+    auth = (username, password) if username and password else None
     try:
-        resp = requests.get(url, params=params, timeout=15)
+        resp = requests.get(url, params=params, auth=auth, timeout=15)
         if resp.status_code == 200:
             return resp.json().get('states', []) or []
         elif resp.status_code == 429:

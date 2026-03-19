@@ -10,7 +10,9 @@ from analyze import analyze
 from report import generate
 
 # AISstream.io APIキー（GitHub Secrets / 環境変数で設定）
-AISSTREAM_API_KEY = os.environ.get('AISSTREAM_API_KEY', '')
+AISSTREAM_API_KEY  = os.environ.get('AISSTREAM_API_KEY', '')
+OPENSKY_USERNAME   = os.environ.get('OPENSKY_USERNAME', '')
+OPENSKY_PASSWORD   = os.environ.get('OPENSKY_PASSWORD', '')
 
 # 船舶データ収集時間（秒）。長いほど多くの船を捕捉できる
 SHIP_COLLECT_SECONDS = 120
@@ -25,8 +27,8 @@ def main():
     for region_id, region in REGIONS.items():
         print(f'📍 {region["name"]}')
 
-        # 航空機
-        raw = fetch_aircraft(region['bounds'])
+        # 航空機（認証ありでフルデータ取得）
+        raw = fetch_aircraft(region['bounds'], username=OPENSKY_USERNAME, password=OPENSKY_PASSWORD)
         aircraft = parse_aircraft(raw)
         print(f'   ✈️  航空機: {len(aircraft)} 機')
 

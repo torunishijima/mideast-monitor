@@ -26,6 +26,8 @@ jobs:
       - name: Run monitor
         env:
           AISSTREAM_API_KEY: ${{ secrets.AISSTREAM_API_KEY }}
+          OPENSKY_USERNAME:  ${{ secrets.OPENSKY_USERNAME }}
+          OPENSKY_PASSWORD:  ${{ secrets.OPENSKY_PASSWORD }}
         run: python main.py
 
       - name: Commit and push
