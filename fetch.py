@@ -24,16 +24,21 @@ def fetch_all_aircraft(username=None, password=None):
         if resp.status_code == 200:
             states = resp.json().get('states', []) or []
             print(f'   → 全世界 {len(states)} 機取得')
-            return _assign_to_regions(states)
+            result = _assign_to_regions(states)
+            result['_global'] = [
+                parse_one_aircraft(s) for s in states
+                if s and s[5] is not None and s[6] is not None
+            ]
+            return result
         elif resp.status_code == 429:
             print('   ⚠ OpenSky API レート制限')
-            return {rid: [] for rid in REGIONS}
+            return {rid: [] for rid in REGIONS} | {'_global': []}
         else:
             print(f'   ⚠ OpenSky API エラー: {resp.status_code}')
-            return {rid: [] for rid in REGIONS}
+            return {rid: [] for rid in REGIONS} | {'_global': []}
     except Exception as e:
         print(f'   ⚠ 航空機データ取得失敗: {e}')
-        return {rid: [] for rid in REGIONS}
+        return {rid: [] for rid in REGIONS} | {'_global': []}
 
 
 def _assign_to_regions(states):

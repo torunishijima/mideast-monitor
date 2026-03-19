@@ -3,9 +3,9 @@ import json
 from config import REGIONS
 
 
-def generate(results, trend, history, timestamp):
+def generate(results, trend, history, timestamp, global_aircraft=None):
     regions_json  = json.dumps(_regions_for_map(results, trend), ensure_ascii=False)
-    aircraft_json = json.dumps(_aircraft_for_map(results), ensure_ascii=False)
+    aircraft_json = json.dumps(_aircraft_for_map(results, global_aircraft), ensure_ascii=False)
     ships_json    = json.dumps(_ships_for_map(results), ensure_ascii=False)
     fires_json    = json.dumps(_fires_for_map(results), ensure_ascii=False)
     history_json  = json.dumps(_history_for_chart(history), ensure_ascii=False)
@@ -275,17 +275,21 @@ def _regions_for_map(results, trend):
     return out
 
 
-def _aircraft_for_map(results):
-    out = []
-    for rid, data in results.items():
-        for a in data['aircraft']:
-            out.append({
-                'lat': a['lat'], 'lon': a['lon'],
-                'icao24': a['icao24'], 'callsign': a['callsign'],
-                'country': a['country'], 'altitude': a['altitude'],
-                'emergency': a['squawk'] in ('7500', '7600', '7700') if a['squawk'] else False,
-            })
-    return out
+def _aircraft_for_map(results, global_aircraft=None):
+    # 全世界リストがあればそちらを優先、なければ地域データを集約
+    source = global_aircraft if global_aircraft is not None else (
+        a for data in results.values() for a in data.get('aircraft', [])
+    )
+    return [
+        {
+            'lat': a['lat'], 'lon': a['lon'],
+            'icao24': a['icao24'], 'callsign': a['callsign'],
+            'country': a['country'], 'altitude': a['altitude'],
+            'emergency': a['squawk'] in ('7500', '7600', '7700') if a['squawk'] else False,
+        }
+        for a in source
+        if not a.get('on_ground')
+    ]
 
 
 def _ships_for_map(results):

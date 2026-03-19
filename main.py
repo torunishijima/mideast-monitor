@@ -25,6 +25,7 @@ def main():
         username=OPENSKY_USERNAME,
         password=OPENSKY_PASSWORD,
     )
+    global_aircraft = aircraft_by_region.pop('_global', [])
     fires_by_region = fetch_all_fires(map_key=NASA_FIRMS_MAP_KEY)
     ships_by_region = fetch_all_ships(
         api_key=AISSTREAM_API_KEY,
@@ -66,7 +67,7 @@ def main():
                 print(f'   🚨 緊急スコーク {e["squawk"]} ({e["squawk_label"]}): {e["callsign"] or e["icao24"]}')
 
     # HTML レポート生成
-    html = generate(results, trend, history, timestamp)
+    html = generate(results, trend, history, timestamp, global_aircraft=global_aircraft)
     os.makedirs('public', exist_ok=True)
     with open('public/index.html', 'w', encoding='utf-8') as f:
         f.write(html)
