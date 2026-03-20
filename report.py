@@ -81,6 +81,18 @@ footer {{ padding: 10px; font-size: 11px; color: #555; text-align: center; }}
   <span><span class="dot" style="background:#ffffff"></span>火災 1000MW〜</span>
 </div>
 
+<div id="tsSection" style="display:none; padding:10px 16px; background:#16213e; border-bottom:1px solid #2a2a4a;">
+  <div style="display:flex; align-items:center; gap:12px;">
+    <span style="font-size:12px; color:#888;">⏱ 履歴</span>
+    <input type="range" id="tsSlider" min="0" value="0" step="1" style="flex:1; accent-color:#4fc3f7;"
+           oninput="onSliderChange(+this.value)">
+    <span id="tsLabel" style="font-size:12px; color:#eee; min-width:130px; text-align:right;"></span>
+    <button id="tsNowBtn" onclick="goToLatest()"
+            style="font-size:11px; padding:3px 10px; background:#2a2a4a; color:#aaa;
+                   border:1px solid #3a3a5a; border-radius:4px; cursor:pointer;">現在</button>
+  </div>
+</div>
+
 <div id="map"></div>
 
 <div class="chart-section">
@@ -98,10 +110,15 @@ const aircraft = {aircraft_json};
 const ships    = {ships_json};
 const fires    = {fires_json};
 const histData = {history_json};
+const SUPABASE_URL  = 'https://iuyiqlyqfhahwxiwoztd.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1eWlxbHlxZmhhaHd4aXdvenRkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5NDQxOTAsImV4cCI6MjA4OTUyMDE5MH0.VfCuijogWh9UizHIyPxvzD-HarBzrGRWKCyMNwKja3k';
 
 // ── 地図（Canvas レンダラーで高速描画）──────────────────────────
-const renderer = L.canvas({{ padding: 0.5 }});
-const map = L.map('map').setView([20, 40], 3);
+const renderer  = L.canvas({{ padding: 0.5 }});
+const map       = L.map('map').setView([20, 40], 3);
+const fireLayer = L.layerGroup().addTo(map);
+const shipLayer = L.layerGroup().addTo(map);
+
 L.tileLayer('https://{{s}}.basemaps.cartocdn.com/dark_all/{{z}}/{{x}}/{{y}}{{r}}.png', {{
   attribution: '&copy; OpenStreetMap &copy; CARTO'
 }}).addTo(map);
@@ -114,7 +131,7 @@ Object.entries(regions).forEach(([id, r]) => {{
    .bindTooltip(`${{r.name}}　スコア: ${{r.score}}${{r.surge ? ' 🚨急上昇' : ''}}`, {{ sticky: true }});
 }});
 
-// 航空機（Canvas）
+// 航空機（Canvas・常に現在のデータ）
 aircraft.forEach(a => {{
   const color = a.emergency ? '#e74c3c' : '#4fc3f7';
   const alt   = a.altitude != null ? Math.round(a.altitude) + ' m' : '不明';
@@ -123,30 +140,90 @@ aircraft.forEach(a => {{
    .addTo(map);
 }});
 
-// 火災（Canvas）- FRPで5段階色分け
+// ── 火災・船舶レンダリング関数 ───────────────────────────────────
 function fireColor(frp) {{
-  if (frp >= 1000) return '#ffffff';  // 白：超大規模
-  if (frp >= 200)  return '#ffff00';  // 黄：大規模山火事
-  if (frp >= 50)   return '#ff8800';  // 明オレンジ：中規模
-  if (frp >= 10)   return '#cc4400';  // オレンジ：農業焼却等
-  return '#661100';                   // 暗い茶：ガスフレア・微小
+  if (frp >= 1000) return '#ffffff';
+  if (frp >= 200)  return '#ffff00';
+  if (frp >= 50)   return '#ff8800';
+  if (frp >= 10)   return '#cc4400';
+  return '#661100';
 }}
-fires.forEach(f => {{
-  const color  = fireColor(f.frp);
-  const radius = f.frp >= 1000 ? 8 : f.frp >= 200 ? 6 : f.frp >= 50 ? 5 : f.frp >= 10 ? 4 : 3;
-  L.circleMarker([f.lat, f.lon], {{ radius, color, fillColor: color, fillOpacity: 0.8, weight: 0, renderer }})
-   .bindPopup(`<b>🔥 火災</b><br>強度: ${{f.frp}} MW<br>信頼度: ${{f.confidence}}<br>${{f.acq_date}} ${{f.acq_time}}`)
-   .addTo(map);
-}});
 
-// 船舶（Canvas）
-ships.forEach(s => {{
-  const color = s.military ? '#e74c3c' : s.tanker ? '#f39c12' : '#a8d8a8';
-  const sog   = s.sog != null ? s.sog.toFixed(1) + ' kt' : '不明';
-  L.circleMarker([s.lat, s.lon], {{ radius: 4, color, fillColor: color, fillOpacity: 0.7, weight: 1, renderer }})
-   .bindPopup(`<b>🚢 ${{s.name || s.mmsi}}</b><br>種別: ${{s.type_label}}<br>速度: ${{sog}}<br>状態: ${{s.nav_status}}`)
-   .addTo(map);
-}});
+function renderFires(data) {{
+  fireLayer.clearLayers();
+  data.forEach(f => {{
+    const color  = fireColor(f.frp);
+    const radius = f.frp >= 1000 ? 8 : f.frp >= 200 ? 6 : f.frp >= 50 ? 5 : f.frp >= 10 ? 4 : 3;
+    L.circleMarker([f.lat, f.lon], {{ radius, color, fillColor: color, fillOpacity: 0.8, weight: 0, renderer }})
+     .bindPopup(`<b>🔥 火災</b><br>強度: ${{f.frp}} MW<br>信頼度: ${{f.confidence}}<br>${{f.acq_date}} ${{f.acq_time}}`)
+     .addTo(fireLayer);
+  }});
+}}
+
+function renderShips(data) {{
+  shipLayer.clearLayers();
+  data.forEach(s => {{
+    const t     = s.ship_type || 0;
+    const color = t === 35 ? '#e74c3c' : (t >= 80 && t <= 89) ? '#f39c12' : '#a8d8a8';
+    const sog   = s.sog != null ? (+s.sog).toFixed(1) + ' kt' : '不明';
+    L.circleMarker([s.lat, s.lon], {{ radius: 4, color, fillColor: color, fillOpacity: 0.7, weight: 1, renderer }})
+     .bindPopup(`<b>🚢 ${{s.name || s.mmsi}}</b><br>種別: ${{s.type_label}}<br>速度: ${{sog}}<br>状態: ${{s.nav_status}}`)
+     .addTo(shipLayer);
+  }});
+}}
+
+// 初期表示（HTMLに埋め込まれた現在データ）
+renderFires(fires);
+renderShips(ships);
+
+// ── タイムスライダー（Supabase 履歴） ───────────────────────────
+let timestamps = [];
+
+async function sbFetch(path) {{
+  const res = await fetch(`${{SUPABASE_URL}}/rest/v1/${{path}}`, {{
+    headers: {{ apikey: SUPABASE_ANON, Authorization: `Bearer ${{SUPABASE_ANON}}` }}
+  }});
+  return res.json();
+}}
+
+async function onSliderChange(idx) {{
+  const ts  = timestamps[idx];
+  const isLatest = idx === timestamps.length - 1;
+  const d   = new Date(ts);
+  const lbl = d.toLocaleString('ja-JP', {{ month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }});
+  document.getElementById('tsLabel').textContent = isLatest ? `現在 (${{lbl}})` : lbl;
+  document.getElementById('tsNowBtn').style.opacity = isLatest ? '0.4' : '1';
+
+  const [f, s] = await Promise.all([
+    sbFetch(`fires?captured_at=eq.${{ts}}&select=lat,lon,frp,confidence,acq_date,acq_time`),
+    sbFetch(`ships?captured_at=eq.${{ts}}&select=lat,lon,mmsi,name,flag,ship_type,type_label,sog,nav_status`),
+  ]);
+  renderFires(f);
+  renderShips(s);
+}}
+
+function goToLatest() {{
+  const slider = document.getElementById('tsSlider');
+  slider.value = timestamps.length - 1;
+  onSliderChange(timestamps.length - 1);
+}}
+
+(async () => {{
+  try {{
+    const rows = await sbFetch('fires?select=captured_at&order=captured_at.desc&limit=200');
+    const seen = new Set();
+    for (const r of rows) {{
+      if (!seen.has(r.captured_at)) {{ seen.add(r.captured_at); timestamps.push(r.captured_at); }}
+    }}
+    timestamps.reverse();
+    if (timestamps.length < 2) return;
+    const slider = document.getElementById('tsSlider');
+    slider.max   = timestamps.length - 1;
+    slider.value = timestamps.length - 1;
+    onSliderChange(timestamps.length - 1);
+    document.getElementById('tsSection').style.display = 'block';
+  }} catch(e) {{ console.warn('Supabase 履歴取得失敗:', e); }}
+}})();
 
 // ── 時系列グラフ ────────────────────────────────────────────────
 const COLORS = [
