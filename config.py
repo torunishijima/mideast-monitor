@@ -59,6 +59,27 @@ REGIONS = {
         'center': [4.0, 102.0],
         'bounds': {'lamin': -2.0, 'lomin': 96.0, 'lamax': 10.0, 'lomax': 108.0},
     },
+    # 主要航路
+    'gulf_of_aden': {
+        'name': 'アデン湾',
+        'center': [12.0, 48.0],
+        'bounds': {'lamin': 8.0, 'lomin': 42.0, 'lamax': 16.0, 'lomax': 58.0},
+    },
+    'indian_ocean': {
+        'name': 'インド洋（主要航路）',
+        'center': [12.0, 65.0],
+        'bounds': {'lamin': -5.0, 'lomin': 55.0, 'lamax': 25.0, 'lomax': 78.0},
+    },
+    'bay_of_bengal': {
+        'name': 'ベンガル湾',
+        'center': [13.0, 88.0],
+        'bounds': {'lamin': 5.0, 'lomin': 80.0, 'lamax': 22.0, 'lomax': 98.0},
+    },
+    'western_med': {
+        'name': '西地中海',
+        'center': [38.0, 10.0],
+        'bounds': {'lamin': 30.0, 'lomin': -6.0, 'lamax': 46.0, 'lomax': 22.0},
+    },
 }
 
 # 軍事・外交的に注目すべき国

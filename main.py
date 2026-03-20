@@ -14,7 +14,7 @@ AISSTREAM_API_KEY  = os.environ.get('AISSTREAM_API_KEY', '')
 OPENSKY_USERNAME   = os.environ.get('OPENSKY_USERNAME', '')
 OPENSKY_PASSWORD   = os.environ.get('OPENSKY_PASSWORD', '')
 NASA_FIRMS_MAP_KEY = os.environ.get('NASA_FIRMS_MAP_KEY', '')
-SHIP_COLLECT_SECONDS = 120
+SHIP_COLLECT_SECONDS = 300
 
 
 def main():
