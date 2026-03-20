@@ -208,11 +208,8 @@ function goToLatest() {{
 
 (async () => {{
   try {{
-    const rows = await sbFetch('ships?select=captured_at&order=captured_at.desc&limit=200');
-    const seen = new Set();
-    for (const r of rows) {{
-      if (!seen.has(r.captured_at)) {{ seen.add(r.captured_at); timestamps.push(r.captured_at); }}
-    }}
+    const rows = await sbFetch('ship_timestamps?order=captured_at.desc&limit=200');
+    for (const r of rows) {{ timestamps.push(r.captured_at); }}
     timestamps.reverse();
     if (timestamps.length < 2) return;
     const slider = document.getElementById('tsSlider');
