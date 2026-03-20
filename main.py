@@ -8,6 +8,7 @@ from fetch import fetch_all_aircraft, fetch_all_ships, fetch_all_fires
 from analyze import analyze
 from report import generate
 from history_store import load as load_history, append as append_history, save as save_history, calc_trend_scores
+from supabase_store import save_fires, save_ships, delete_old_data
 
 AISSTREAM_API_KEY  = os.environ.get('AISSTREAM_API_KEY', '')
 OPENSKY_USERNAME   = os.environ.get('OPENSKY_USERNAME', '')
@@ -41,6 +42,12 @@ def main():
         fires    = fires_by_region.get(region_id, [])
         result   = analyze(aircraft, ships, fires)
         results[region_id] = result
+
+    # Supabase に火災・船舶データを保存
+    iso_ts = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+    save_fires(fires_by_region, iso_ts)
+    save_ships(ships_by_region, iso_ts)
+    delete_old_data(hours=48)
 
     # 履歴を更新してトレンドスコアを計算
     history = load_history()

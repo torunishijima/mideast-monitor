@@ -25,10 +25,12 @@ jobs:
 
       - name: Run monitor
         env:
-          AISSTREAM_API_KEY:  ${{ secrets.AISSTREAM_API_KEY }}
-          OPENSKY_USERNAME:   ${{ secrets.OPENSKY_USERNAME }}
-          OPENSKY_PASSWORD:   ${{ secrets.OPENSKY_PASSWORD }}
-          NASA_FIRMS_MAP_KEY: ${{ secrets.NASA_FIRMS_MAP_KEY }}
+          AISSTREAM_API_KEY:      ${{ secrets.AISSTREAM_API_KEY }}
+          OPENSKY_USERNAME:       ${{ secrets.OPENSKY_USERNAME }}
+          OPENSKY_PASSWORD:       ${{ secrets.OPENSKY_PASSWORD }}
+          NASA_FIRMS_MAP_KEY:     ${{ secrets.NASA_FIRMS_MAP_KEY }}
+          SUPABASE_URL:           ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY:   ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python main.py
 
       - name: Commit and push
