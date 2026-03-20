@@ -192,9 +192,10 @@ async function onSliderChange(idx) {{
   document.getElementById('tsLabel').textContent = isLatest ? `現在 (${{lbl}})` : lbl;
   document.getElementById('tsNowBtn').style.opacity = isLatest ? '0.4' : '1';
 
+  const ets = encodeURIComponent(ts);
   const [f, s] = await Promise.all([
-    sbFetch(`fires?captured_at=eq.${{ts}}&select=lat,lon,frp,confidence,acq_date,acq_time`),
-    sbFetch(`ships?captured_at=eq.${{ts}}&select=lat,lon,mmsi,name,flag,ship_type,type_label,sog,nav_status`),
+    sbFetch(`fires?captured_at=eq.${{ets}}&select=lat,lon,frp,confidence,acq_date,acq_time`),
+    sbFetch(`ships?captured_at=eq.${{ets}}&select=lat,lon,mmsi,name,flag,ship_type,type_label,sog,nav_status`),
   ]);
   renderFires(f);
   renderShips(s);
