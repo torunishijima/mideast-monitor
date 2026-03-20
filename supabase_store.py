@@ -12,7 +12,7 @@ def _headers():
         'apikey':        SUPABASE_KEY,
         'Authorization': f'Bearer {SUPABASE_KEY}',
         'Content-Type':  'application/json',
-        'Prefer':        'return=minimal,resolution=ignore-duplicates',
+        'Prefer':        'return=minimal',
     }
 
 
@@ -25,7 +25,7 @@ def _post(table, rows):
             f'{SUPABASE_URL}/rest/v1/{table}',
             headers=_headers(),
             json=rows[i:i + batch_size],
-            timeout=15,
+            timeout=30,
         )
         if resp.status_code not in (200, 201):
             print(f'   ⚠ Supabase {table} 保存エラー: {resp.status_code} {resp.text[:120]}')
