@@ -230,7 +230,8 @@ def fetch_all_fires(map_key=None, day_range=1):
         except Exception as e:
             print(f'   ⚠ FIRMS 取得失敗 ({rid}): {e}')
 
-    print(f'   → 全世界 {len(all_fires)} 件の熱源検知')
+    all_fires = [f for f in all_fires if f.get('frp', 0) >= 20]
+    print(f'   → 全世界 {len(all_fires)} 件の熱源検知（20MW以上）')
     return _assign_fires_to_regions(all_fires)
 
 
