@@ -208,7 +208,7 @@ function goToLatest() {{
 
 (async () => {{
   try {{
-    const rows = await sbFetch('fires?select=captured_at&order=captured_at.desc&limit=200');
+    const rows = await sbFetch('ships?select=captured_at&order=captured_at.desc&limit=200');
     const seen = new Set();
     for (const r of rows) {{
       if (!seen.has(r.captured_at)) {{ seen.add(r.captured_at); timestamps.push(r.captured_at); }}
