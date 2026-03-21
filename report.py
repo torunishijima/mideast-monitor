@@ -92,9 +92,11 @@ footer {{ padding: 10px; font-size: 11px; color: #555; text-align: center; }}
   <span><span class="dot" style="background:#e74c3c"></span>軍用</span>
   <span><span class="dot" style="background:#a8d8a8"></span>船舶</span>
   <span><span class="dot" style="background:#f39c12"></span>タンカー</span>
-  <span><span class="dot" style="background:#ff8800"></span>火災 200〜1000MW</span>
-  <span><span class="dot" style="background:#ffff00"></span>火災 200〜1000MW</span>
-  <span><span class="dot" style="background:#ffffff"></span>火災 1000MW〜</span>
+  <span style="display:flex;align-items:center;gap:5px;">
+    <span style="width:80px;height:8px;border-radius:4px;display:inline-block;
+                 background:linear-gradient(to right,#cc4400,#ff8800,#ffff00,#ffffff);"></span>
+    🔥 200MW → 5000MW+
+  </span>
   <span><span class="dot" style="background:#c678dd"></span>紛争イベント</span>
 </div>
 
@@ -169,16 +171,25 @@ Object.entries(regions).forEach(([id, r]) => {{
 
 // ── 火災・船舶レンダリング関数 ───────────────────────────────────
 function fireColor(frp) {{
-  if (frp >= 1000) return '#ffffff';  // 白：超大規模（1000MW〜）
-  return '#ff8800';                   // オレンジ：大規模（200〜1000MW）
+  // 対数スケール: 200MW→0、5000MW→1
+  const t = Math.min(Math.log(frp / 200) / Math.log(25), 1);
+  // 暗オレンジ→オレンジ→黄→白 の4段階グラデーション
+  const stops = [[0xcc,0x44,0x00],[0xff,0x88,0x00],[0xff,0xff,0x00],[0xff,0xff,0xff]];
+  const seg = t * (stops.length - 1);
+  const i   = Math.min(Math.floor(seg), stops.length - 2);
+  const s   = seg - i;
+  const r   = Math.round(stops[i][0] + (stops[i+1][0] - stops[i][0]) * s);
+  const g   = Math.round(stops[i][1] + (stops[i+1][1] - stops[i][1]) * s);
+  const b   = Math.round(stops[i][2] + (stops[i+1][2] - stops[i][2]) * s);
+  return `rgb(${{r}},${{g}},${{b}})`;
 }}
 
 function renderFires(data) {{
   fireLayer.clearLayers();
   data.forEach(f => {{
     const color  = fireColor(f.frp);
-    const radius = f.frp >= 1000 ? 8 : f.frp >= 200 ? 6 : f.frp >= 50 ? 5 : 4;
-    L.circleMarker([f.lat, f.lon], {{ radius, color, fillColor: color, fillOpacity: 0.8, weight: 0, renderer }})
+    const radius = Math.min(3 + Math.log10(Math.max(f.frp, 200) / 200) * 4, 10);
+    L.circleMarker([f.lat, f.lon], {{ radius, color, fillColor: color, fillOpacity: 0.85, weight: 0, renderer }})
      .bindPopup(`<b>🔥 火災</b><br>強度: ${{f.frp}} MW<br>信頼度: ${{f.confidence}}<br>${{f.acq_date}} ${{f.acq_time}}`)
      .addTo(fireLayer);
   }});
