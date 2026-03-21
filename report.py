@@ -95,7 +95,7 @@ footer {{ padding: 10px; font-size: 11px; color: #555; text-align: center; }}
   <span style="display:flex;align-items:center;gap:5px;">
     <span style="width:80px;height:8px;border-radius:4px;display:inline-block;
                  background:linear-gradient(to right,#cc4400,#ff8800,#ffff00,#ffffff);"></span>
-    🔥 200MW → 5000MW+
+    🔥 200MW → 1000MW+
   </span>
   <span><span class="dot" style="background:#c678dd"></span>紛争イベント</span>
 </div>
@@ -171,8 +171,8 @@ Object.entries(regions).forEach(([id, r]) => {{
 
 // ── 火災・船舶レンダリング関数 ───────────────────────────────────
 function fireColor(frp) {{
-  // 対数スケール: 200MW→0、5000MW→1
-  const t = Math.min(Math.log(frp / 200) / Math.log(25), 1);
+  // 対数スケール: 200MW→0、1000MW→1（以上は白）
+  const t = Math.min(Math.log(frp / 200) / Math.log(5), 1);
   // 暗オレンジ→オレンジ→黄→白 の4段階グラデーション
   const stops = [[0xcc,0x44,0x00],[0xff,0x88,0x00],[0xff,0xff,0x00],[0xff,0xff,0xff]];
   const seg = t * (stops.length - 1);
