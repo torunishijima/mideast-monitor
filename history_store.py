@@ -24,13 +24,11 @@ def append(history, timestamp, results):
         'timestamp': timestamp,
         'regions': {
             rid: {
-                'anomaly_score':  data['anomaly_score'],
-                'aircraft_score': data.get('aircraft_score', 0),
-                'ship_score':     data.get('ship_score', 0),
-                'fire_score':     data.get('fire_score', 0),
-                'aircraft_count': data['count'],
-                'ship_count':     data['ships']['count'],
-                'fire_count':     data['fires']['count'],
+                'anomaly_score': data['anomaly_score'],
+                'ship_score':    data.get('ship_score', 0),
+                'fire_score':    data.get('fire_score', 0),
+                'ship_count':    data['ships']['count'],
+                'fire_count':    data['fires']['count'],
             }
             for rid, data in results.items()
         },

@@ -3,13 +3,12 @@ import json
 from config import REGIONS
 
 
-def generate(results, trend, history, timestamp, global_aircraft=None):
-    regions_json  = json.dumps(_regions_for_map(results, trend), ensure_ascii=False)
-    aircraft_json = json.dumps(_aircraft_for_map(results, global_aircraft), ensure_ascii=False)
-    ships_json    = json.dumps(_ships_for_map(results), ensure_ascii=False)
-    fires_json    = json.dumps(_fires_for_map(results), ensure_ascii=False)
-    history_json  = json.dumps(_history_for_chart(history), ensure_ascii=False)
-    cards_html    = ''.join(_card_html(rid, results[rid], trend[rid]) for rid in results)
+def generate(results, trend, history, timestamp):
+    regions_json = json.dumps(_regions_for_map(results, trend), ensure_ascii=False)
+    ships_json   = json.dumps(_ships_for_map(results), ensure_ascii=False)
+    fires_json   = json.dumps(_fires_for_map(results), ensure_ascii=False)
+    history_json = json.dumps(_history_for_chart(history), ensure_ascii=False)
+    cards_html   = ''.join(_card_html(rid, results[rid], trend[rid]) for rid in results)
 
     return f'''<!DOCTYPE html>
 <html lang="ja">
@@ -80,9 +79,6 @@ footer {{ padding: 10px; font-size: 11px; color: #555; text-align: center; }}
 </header>
 
 <div class="legend">
-  <button id="btn-aircraft" class="toggle-btn" onclick="toggleLayer('aircraft')">
-    ✈️ 航空機 <span id="cnt-aircraft"></span>
-  </button>
   <button id="btn-ships" class="toggle-btn" onclick="toggleLayer('ships')">
     🚢 船舶 <span id="cnt-ships"></span>
   </button>
@@ -90,8 +86,7 @@ footer {{ padding: 10px; font-size: 11px; color: #555; text-align: center; }}
     🔥 火災 <span id="cnt-fires"></span>
   </button>
   <span style="margin-left:6px; color:#555;">|</span>
-  <span><span class="dot" style="background:#4fc3f7"></span>航空機</span>
-  <span><span class="dot" style="background:#e74c3c"></span>緊急スコーク / 軍用</span>
+  <span><span class="dot" style="background:#e74c3c"></span>軍用</span>
   <span><span class="dot" style="background:#a8d8a8"></span>船舶</span>
   <span><span class="dot" style="background:#f39c12"></span>タンカー</span>
   <span><span class="dot" style="background:#cc4400"></span>火災 20〜50MW</span>
@@ -122,11 +117,10 @@ footer {{ padding: 10px; font-size: 11px; color: #555; text-align: center; }}
 
 <div class="cards">{cards_html}</div>
 
-<footer>データソース: OpenSky Network (CC BY 4.0) · AISstream.io · NASA FIRMS — 研究・教育目的のみ</footer>
+<footer>データソース: AISstream.io · NASA FIRMS — 研究・教育目的のみ</footer>
 
 <script>
 const regions  = {regions_json};
-const aircraft = {aircraft_json};
 const ships    = {ships_json};
 const fires    = {fires_json};
 const histData = {history_json};
@@ -134,20 +128,19 @@ const SUPABASE_URL  = 'https://iuyiqlyqfhahwxiwoztd.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1eWlxbHlxZmhhaHd4aXdvenRkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5NDQxOTAsImV4cCI6MjA4OTUyMDE5MH0.VfCuijogWh9UizHIyPxvzD-HarBzrGRWKCyMNwKja3k';
 
 // ── 地図（Canvas レンダラーで高速描画）──────────────────────────
-const renderer      = L.canvas({{ padding: 0.5 }});
-const map           = L.map('map').setView([20, 40], 3);
-const aircraftLayer = L.layerGroup().addTo(map);
-const shipLayer     = L.layerGroup().addTo(map);
-const fireLayer     = L.layerGroup().addTo(map);
+const renderer  = L.canvas({{ padding: 0.5 }});
+const map       = L.map('map').setView([20, 40], 3);
+const shipLayer = L.layerGroup().addTo(map);
+const fireLayer = L.layerGroup().addTo(map);
 
 // レイヤー表示状態
-const layerState = {{ aircraft: true, ships: true, fires: true }};
+const layerState = {{ ships: true, fires: true }};
 
 function toggleLayer(name) {{
   layerState[name] = !layerState[name];
   const btn = document.getElementById('btn-' + name);
   btn.classList.toggle('off', !layerState[name]);
-  const layer = name === 'aircraft' ? aircraftLayer : name === 'ships' ? shipLayer : fireLayer;
+  const layer = name === 'ships' ? shipLayer : fireLayer;
   if (layerState[name]) {{ map.addLayer(layer); }} else {{ map.removeLayer(layer); }}
 }}
 
@@ -167,16 +160,6 @@ Object.entries(regions).forEach(([id, r]) => {{
    .addTo(map)
    .bindTooltip(`${{r.name}}　スコア: ${{r.score}}${{r.surge ? ' 🚨急上昇' : ''}}`, {{ sticky: true }});
 }});
-
-// 航空機（Canvas・常に現在のデータ）
-aircraft.forEach(a => {{
-  const color = a.emergency ? '#e74c3c' : '#4fc3f7';
-  const alt   = a.altitude != null ? Math.round(a.altitude) + ' m' : '不明';
-  L.circleMarker([a.lat, a.lon], {{ radius: 3, color, fillColor: color, fillOpacity: 0.8, weight: 1, renderer }})
-   .bindPopup(`<b>${{a.callsign || a.icao24}}</b><br>国: ${{a.country}}<br>高度: ${{alt}}`)
-   .addTo(aircraftLayer);
-}});
-updateCount('aircraft', aircraft.length);
 
 // ── 火災・船舶レンダリング関数 ───────────────────────────────────
 function fireColor(frp) {{
@@ -352,19 +335,10 @@ def _card_html(region_id, data, t):
 
     surge_badge = ' 🚨 急上昇' if t['is_surge'] else ''
 
-    air_tags = ''.join(
-        f'<span class="tag air">{c} ({n})</span>'
-        for c, n in list(data['countries'].items())[:5]
-    )
     ship_tags = ''.join(
         f'<span class="tag ship">{f} ({n})</span>'
         for f, n in list(ships.get('flags', {}).items())[:4]
     )
-
-    alert = ''
-    if data['emergency']:
-        labels = '、'.join(e['squawk_label'] for e in data['emergency'])
-        alert = f'<div class="alert">🚨 緊急スコーク: {labels}</div>'
 
     ship_section = ''
     if ships.get('count', 0) > 0:
@@ -398,14 +372,6 @@ def _card_html(region_id, data, t):
     <span class="score" style="background:{_score_color(score)}">スコア {score}</span>
   </div>
   {trend_html}
-  <div class="section-title">✈️ 航空機</div>
-  <div class="stats">
-    <div class="stat"><span class="num">{data["count"]}</span><span class="label">航空機</span></div>
-    <div class="stat"><span class="num">{data["low_altitude"]}</span><span class="label">低高度</span></div>
-    <div class="stat"><span class="num">{len(data["notable"])}</span><span class="label">注目国</span></div>
-  </div>
-  {alert}
-  <div class="tags">{air_tags}</div>
   {ship_section}
   {fire_section}
 </div>'''
@@ -424,23 +390,6 @@ def _regions_for_map(results, trend):
             'surge':  trend[rid]['is_surge'],
         }
     return out
-
-
-def _aircraft_for_map(results, global_aircraft=None):
-    # 全世界リストがあればそちらを優先、なければ地域データを集約
-    source = global_aircraft if global_aircraft is not None else (
-        a for data in results.values() for a in data.get('aircraft', [])
-    )
-    return [
-        {
-            'lat': a['lat'], 'lon': a['lon'],
-            'icao24': a['icao24'], 'callsign': a['callsign'],
-            'country': a['country'], 'altitude': a['altitude'],
-            'emergency': a['squawk'] in ('7500', '7600', '7700') if a['squawk'] else False,
-        }
-        for a in source
-        if not a.get('on_ground')
-    ]
 
 
 def _ships_for_map(results):
