@@ -117,13 +117,43 @@ def save_region_stats(results, captured_at):
     print(f'   → Supabase: 地域統計 {len(rows)} 地域保存')
 
 
+def save_events(events_by_region, captured_at):
+    """全地域の紛争イベントデータを保存（重複除去）"""
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        return
+
+    seen, rows = set(), []
+    for events in events_by_region.values():
+        for e in events:
+            key = (e['lat'], e['lon'], e.get('event_code'))
+            if key in seen:
+                continue
+            seen.add(key)
+            rows.append({
+                'captured_at':  captured_at,
+                'lat':          e['lat'],
+                'lon':          e['lon'],
+                'event_code':   e.get('event_code', ''),
+                'event_root':   e.get('event_root', ''),
+                'goldstein':    e.get('goldstein', 0.0),
+                'num_articles': e.get('num_articles', 0),
+                'avg_tone':     e.get('avg_tone', 0.0),
+                'actor1':       e.get('actor1', ''),
+                'actor2':       e.get('actor2', ''),
+                'location':     e.get('location', ''),
+            })
+
+    _post('events', rows)
+    print(f'   → Supabase: 紛争イベント {len(rows)} 件保存')
+
+
 def delete_old_data(hours=48):
     """古いデータを削除（デフォルト48時間以前）"""
     if not SUPABASE_URL or not SUPABASE_KEY:
         return
 
     cutoff = (datetime.datetime.utcnow() - datetime.timedelta(hours=hours)).strftime('%Y-%m-%dT%H:%M:%SZ')
-    for table in ('fires', 'ships'):
+    for table in ('fires', 'ships', 'events'):
         requests.delete(
             f'{SUPABASE_URL}/rest/v1/{table}?captured_at=lt.{cutoff}',
             headers=_headers(),
