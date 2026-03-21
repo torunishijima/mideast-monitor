@@ -221,10 +221,11 @@ function renderEvents(data) {{
     L.circleMarker([e.lat, e.lon], {{
       radius, color: '#c678dd', fillColor: '#c678dd', fillOpacity: 0.6, weight: 1, renderer
     }}).bindPopup(
-      `<b>📰 紛争イベント</b><br>` +
-      `場所: ${{e.location || '不明'}}<br>` +
-      `アクター: ${{e.actor1 || '不明'}} vs ${{e.actor2 || '不明'}}<br>` +
-      `記事数: ${{e.num_articles}}　Goldstein: ${{e.goldstein}}`
+      `<b>📰 ${{e.event_label || 'Conflict event'}}</b><br>` +
+      `${{e.location || ''}}<br>` +
+      `${{e.actor1 || '?'}} vs ${{e.actor2 || '?'}}<br>` +
+      `Articles: ${{e.num_articles}}　Goldstein: ${{e.goldstein}}<br>` +
+      (e.source_url ? `<a href="${{e.source_url}}" target="_blank" style="color:#88ccff">📎 Source</a>` : '')
     ).addTo(eventLayer);
   }});
   updateCount('events', data.length);
@@ -314,11 +315,15 @@ const trendChart = new Chart(ctx, {{
           color: '#666', font: {{ size: 10 }},
           maxTicksLimit: 40,
           callback: function(val, index) {{
-            const label = histData.labels[index] || '';
-            const [date, time] = label.split(' ');
-            if (time === '00:00' || time === '00:') return date;  // 日付
-            if (time === '06:00' || time === '12:00' || time === '18:00') return time;
-            if (index === histData.labels.length - 1) return time || date;
+            const label    = histData.labels[index] || '';
+            const prevLabel= histData.labels[index - 1] || '';
+            const [date, time]     = label.split(' ');
+            const [prevDate]       = prevLabel.split(' ');
+            if (date !== prevDate) return date;  // 日付が変わった時点で日付表示
+            const n    = histData.labels.length;
+            const step = Math.max(Math.floor(n / 8), 1);
+            if (index % step === 0) return time;
+            if (index === n - 1) return time;
             return null;
           }},
         }},
@@ -487,13 +492,13 @@ def _events_for_map(results):
             out.append({
                 'lat':          e['lat'],
                 'lon':          e['lon'],
-                'event_code':   e.get('event_code', ''),
+                'event_label':  e.get('event_label', e.get('event_code', '')),
                 'goldstein':    e.get('goldstein', 0),
                 'num_articles': e.get('num_articles', 0),
-                'avg_tone':     e.get('avg_tone', 0),
                 'actor1':       e.get('actor1', ''),
                 'actor2':       e.get('actor2', ''),
                 'location':     e.get('location', ''),
+                'source_url':   e.get('source_url', ''),
             })
     return out
 

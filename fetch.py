@@ -254,6 +254,27 @@ def _assign_fires_to_regions(fires):
 # CAMEO EventRootCode: 18=Use of force, 19=Armed force, 20=Mass violence
 CONFLICT_ROOT_CODES = {'18', '19', '20'}
 
+CAMEO_LABELS = {
+    '180': 'Use of force',
+    '181': 'Abduct / hijack / take hostage',
+    '182': 'Physically assault',
+    '183': 'Conduct bombing',
+    '184': 'Use as human shield',
+    '185': 'Attempt to assassinate',
+    '186': 'Assassinate',
+    '190': 'Fight',
+    '191': 'Impose blockade / restrict movement',
+    '192': 'Occupy territory',
+    '193': 'Fight with small arms',
+    '194': 'Fight with artillery / tanks',
+    '195': 'Employ aerial weapons',
+    '196': 'Violate ceasefire',
+    '200': 'Mass violence',
+    '201': 'Mass killing',
+    '202': 'Ethnic cleansing',
+    '203': 'Religious persecution',
+}
+
 
 def fetch_all_events():
     """GDELT 2.0 から過去1時間分（4ファイル）の紛争イベントを取得して地域ごとに振り分け"""
@@ -313,10 +334,12 @@ def fetch_all_events():
                         lon = float(row[57]) if row[57] else None
                         if lat is None or lon is None or (lat == 0 and lon == 0):
                             continue
+                        code = row[26]
                         events.append({
                             'lat':          lat,
                             'lon':          lon,
-                            'event_code':   row[26],
+                            'event_code':   code,
+                            'event_label':  CAMEO_LABELS.get(code, code),
                             'event_root':   row[28],
                             'goldstein':    float(row[30]) if row[30] else 0.0,
                             'num_articles': int(row[33])   if row[33] else 0,
@@ -324,6 +347,7 @@ def fetch_all_events():
                             'actor1':       row[6],
                             'actor2':       row[16],
                             'location':     row[52],
+                            'source_url':   row[60].strip() if len(row) > 60 else '',
                         })
                     except (ValueError, IndexError):
                         continue
