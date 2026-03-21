@@ -8,6 +8,7 @@ from analyze import analyze
 from report import generate
 from history_store import load as load_history, append as append_history, save as save_history, calc_trend_scores
 from supabase_store import save_fires, save_ships, save_events, save_region_stats, delete_old_data
+from summarize import generate_summary
 
 
 AISSTREAM_API_KEY  = os.environ.get('AISSTREAM_API_KEY', '')
@@ -81,10 +82,17 @@ def main():
         print(f'   火災 {tf["current"]}件  7日比{tf["week_pct"]:+.0f}%  24h比{tf["day_pct"]:+.0f}%')
         print(f'   紛争 {te["current"]}件  7日比{te["week_pct"]:+.0f}%  24h比{te["day_pct"]:+.0f}%')
 
+    # Claude API でサマリー生成
+    print('\n📝 情勢サマリー生成中...')
+    summary = generate_summary(events_by_region.get('_global', []))
+    if summary:
+        print(summary)
+
     # HTML レポート生成
     html = generate(results, trend, history, timestamp,
                     all_fires=fires_by_region.get('_global', []),
-                    all_events=events_by_region.get('_global', []))
+                    all_events=events_by_region.get('_global', []),
+                    summary=summary)
     os.makedirs('public', exist_ok=True)
     with open('public/index.html', 'w', encoding='utf-8') as f:
         f.write(html)

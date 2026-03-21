@@ -3,7 +3,7 @@ import json
 from config import REGIONS
 
 
-def generate(results, trend, history, timestamp, all_fires=None, all_events=None):
+def generate(results, trend, history, timestamp, all_fires=None, all_events=None, summary=''):
     regions_json = json.dumps(_regions_for_map(results, trend), ensure_ascii=False)
     ships_json   = json.dumps(_ships_for_map(results), ensure_ascii=False)
     fires_json   = json.dumps(all_fires or _fires_for_map(results), ensure_ascii=False)
@@ -82,7 +82,10 @@ footer {{ padding: 10px; font-size: 11px; color: #555; text-align: center; }}
   <span class="updated">更新: {timestamp}</span>
 </header>
 
-<div class="legend">
+{f\'\'\'<div style="padding:12px 16px; background:#1a1a2e; border-bottom:1px solid #2a2a4a;">
+  <div style="font-size:11px; color:#888; margin-bottom:6px;">📝 最新情勢サマリー（AI生成）</div>
+  <div style="font-size:13px; color:#ccc; line-height:1.7; white-space:pre-wrap;">{summary}</div>
+</div>\'\'\' if summary else \'\'}<div class="legend">
   <button id="btn-ships" class="toggle-btn" onclick="toggleLayer('ships')">
     🚢 船舶 <span id="cnt-ships"></span>
   </button>
