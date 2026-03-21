@@ -97,15 +97,15 @@ def _analyze_fires(fire_list):
 
     # 高信頼度の火災のみ（low は除外）
     high_conf = [f for f in fire_list if f.get('confidence', '').lower() != 'low']
-    # 高強度火災（FRP 50MW以上）
-    intense   = [f for f in high_conf if f.get('frp', 0) >= 50]
+    # 超大規模火災（FRP 1000MW以上）
+    intense   = [f for f in high_conf if f.get('frp', 0) >= 1000]
     total_frp = sum(f.get('frp', 0) for f in high_conf)
 
     # スコア: 高信頼度の件数と強度で計算
     score = 0.0
-    score += min(len(high_conf) * 2, 40)   # 件数（最大40点）
-    score += min(len(intense) * 5, 40)      # 高強度（最大40点）
-    score += min(total_frp / 500, 20)       # 総強度（最大20点）
+    score += min(len(high_conf) * 5, 40)   # 件数（最大40点）
+    score += min(len(intense) * 10, 40)     # 超大規模（最大40点）
+    score += min(total_frp / 2000, 20)      # 総強度（最大20点）
 
     return {
         'count':      len(fire_list),

@@ -92,8 +92,7 @@ footer {{ padding: 10px; font-size: 11px; color: #555; text-align: center; }}
   <span><span class="dot" style="background:#e74c3c"></span>軍用</span>
   <span><span class="dot" style="background:#a8d8a8"></span>船舶</span>
   <span><span class="dot" style="background:#f39c12"></span>タンカー</span>
-  <span><span class="dot" style="background:#cc4400"></span>火災 20〜50MW</span>
-  <span><span class="dot" style="background:#ff8800"></span>火災 50〜200MW</span>
+  <span><span class="dot" style="background:#ff8800"></span>火災 200〜1000MW</span>
   <span><span class="dot" style="background:#ffff00"></span>火災 200〜1000MW</span>
   <span><span class="dot" style="background:#ffffff"></span>火災 1000MW〜</span>
   <span><span class="dot" style="background:#c678dd"></span>紛争イベント</span>
@@ -170,10 +169,8 @@ Object.entries(regions).forEach(([id, r]) => {{
 
 // ── 火災・船舶レンダリング関数 ───────────────────────────────────
 function fireColor(frp) {{
-  if (frp >= 1000) return '#ffffff';  // 白：超大規模
-  if (frp >= 200)  return '#ffff00';  // 黄：大規模
-  if (frp >= 50)   return '#ff8800';  // 明オレンジ：中規模
-  return '#cc4400';                   // 暗いオレンジ：小規模（20〜50MW）
+  if (frp >= 1000) return '#ffffff';  // 白：超大規模（1000MW〜）
+  return '#ff8800';                   // オレンジ：大規模（200〜1000MW）
 }}
 
 function renderFires(data) {{
