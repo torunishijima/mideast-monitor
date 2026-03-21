@@ -65,7 +65,6 @@ header h1 {{ font-size: 17px; }}
           padding: 7px 10px; font-size: 12px; margin: 6px 0; }}
 .tags {{ display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }}
 .tag {{ font-size: 11px; padding: 2px 7px; border-radius: 4px; }}
-.tag.air {{ background: #0f3460; color: #adf; }}
 .tag.ship {{ background: #0d3d2a; color: #afa; }}
 .divider {{ border: none; border-top: 1px solid #2a2a4a; margin: 8px 0; }}
 footer {{ padding: 10px; font-size: 11px; color: #555; text-align: center; }}
@@ -75,7 +74,7 @@ footer {{ padding: 10px; font-size: 11px; color: #555; text-align: center; }}
 
 <header>
   <span style="font-size:22px">🌍</span>
-  <h1>世界の緊張地帯 航空・船舶・火災モニター</h1>
+  <h1>世界の緊張地帯 船舶・火災・紛争モニター</h1>
   <span class="updated">更新: {timestamp}</span>
 </header>
 
