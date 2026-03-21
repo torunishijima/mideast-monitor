@@ -242,10 +242,14 @@ function renderEvents(data) {{
   updateCount('events', data.length);
 }}
 
-// 初期表示（HTMLに埋め込まれた現在データ）
-renderFires(fires);
+// 初期表示（HTMLに埋め込まれた現在データ、空の場合はSupabaseから取得）
 renderShips(ships);
-renderEvents(events);
+if (fires.length > 0) {{
+  renderFires(fires);
+}}
+if (events.length > 0) {{
+  renderEvents(events);
+}}
 
 // ── タイムスライダー（Supabase 履歴） ───────────────────────────
 let timestamps = [];
@@ -285,12 +289,32 @@ function goToLatest() {{
     const rows = await sbFetch('ship_timestamps?order=captured_at.desc&limit=200');
     for (const r of rows) {{ timestamps.push(r.captured_at); }}
     timestamps.reverse();
-    if (timestamps.length < 2) return;
+    if (timestamps.length === 0) return;
+
     const slider = document.getElementById('tsSlider');
     slider.max   = timestamps.length - 1;
     slider.value = timestamps.length - 1;
-    onSliderChange(timestamps.length - 1);
-    document.getElementById('tsSection').style.display = 'block';
+
+    // 最新タイムスタンプでラベル更新
+    const ts  = timestamps[timestamps.length - 1];
+    const lbl = new Date(ts).toLocaleString('ja-JP', {{ month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }});
+    document.getElementById('tsLabel').textContent = `現在 (${{lbl}})`;
+    document.getElementById('tsNowBtn').style.opacity = '0.4';
+
+    // 初期表示が空なら最新データをSupabaseから取得
+    if (fires.length === 0 || events.length === 0) {{
+      const ets = encodeURIComponent(ts);
+      const [f, e] = await Promise.all([
+        fires.length === 0  ? sbFetch(`fires?captured_at=eq.${{ets}}&select=lat,lon,frp,confidence,acq_date,acq_time`) : Promise.resolve(null),
+        events.length === 0 ? sbFetch(`events?captured_at=eq.${{ets}}&select=lat,lon,event_code,event_root,goldstein,num_articles,avg_tone,actor1,actor2,location`) : Promise.resolve(null),
+      ]);
+      if (f) renderFires(f);
+      if (e) renderEvents(e);
+    }}
+
+    if (timestamps.length >= 2) {{
+      document.getElementById('tsSection').style.display = 'block';
+    }}
   }} catch(e) {{ console.warn('Supabase 履歴取得失敗:', e); }}
 }})();
 
