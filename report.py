@@ -86,7 +86,7 @@ footer {{ padding: 10px; font-size: 11px; color: #555; text-align: center; }}
   <span class="updated">更新: {timestamp}</span>
 </header>
 
-{summary_html}<div class="legend">
+<div class="legend">
   <button id="btn-ships" class="toggle-btn" onclick="toggleLayer('ships')">
     🚢 船舶 <span id="cnt-ships"></span>
   </button>
@@ -124,6 +124,7 @@ footer {{ padding: 10px; font-size: 11px; color: #555; text-align: center; }}
 
 <div id="map"></div>
 
+{summary_html}
 <div class="chart-section">
   <h2>📈 指標別件数推移（過去7日間・全地域合計）</h2>
   <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
