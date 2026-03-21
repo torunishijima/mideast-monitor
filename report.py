@@ -312,11 +312,14 @@ const trendChart = new Chart(ctx, {{
       x: {{
         ticks: {{
           color: '#666', font: {{ size: 10 }},
-          callback: function(val, index, ticks) {{
-            const n = ticks.length;
-            if (n <= 12) return val;
-            const step = Math.floor(n / 11);
-            return (index % step === 0 || index === n - 1) ? val : null;
+          maxTicksLimit: 40,
+          callback: function(val, index) {{
+            const label = histData.labels[index] || '';
+            const [date, time] = label.split(' ');
+            if (time === '00:00' || time === '00:') return date;  // 日付
+            if (time === '06:00' || time === '12:00' || time === '18:00') return time;
+            if (index === histData.labels.length - 1) return time || date;
+            return null;
           }},
         }},
         grid: {{ color: '#2a2a4a' }},
