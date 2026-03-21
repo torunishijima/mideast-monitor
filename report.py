@@ -124,7 +124,6 @@ footer {{ padding: 10px; font-size: 11px; color: #555; text-align: center; }}
 
 <div id="map"></div>
 
-{summary_html}
 <div class="chart-section">
   <h2>📈 指標別件数推移（過去7日間・全地域合計）</h2>
   <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
@@ -133,6 +132,7 @@ footer {{ padding: 10px; font-size: 11px; color: #555; text-align: center; }}
 
 <div class="cards">{cards_html}</div>
 
+{summary_html}
 <footer>データソース: AISstream.io · NASA FIRMS · GDELT 2.0 — 研究・教育目的のみ</footer>
 
 <script>
