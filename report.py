@@ -141,7 +141,10 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 
 // ── 地図（Canvas レンダラーで高速描画）──────────────────────────
 const renderer   = L.canvas({{ padding: 0.5 }});
-const map        = L.map('map').setView([20, 40], 3);
+const map        = L.map('map', {{
+  maxBounds: [[-90, -180], [90, 180]],
+  maxBoundsViscosity: 1.0,
+}}).setView([20, 40], 3);
 const shipLayer  = L.layerGroup().addTo(map);
 const fireLayer  = L.layerGroup().addTo(map);
 const eventLayer = L.layerGroup().addTo(map);
