@@ -254,8 +254,9 @@ CONFLICT_ROOT_CODES = {'18', '19', '20'}
 
 
 def fetch_all_events():
-    """GDELT 2.0 から最新15分の紛争イベントを取得して地域ごとに振り分け"""
-    print('📰  GDELT: 最新紛争イベント取得中...')
+    """GDELT 2.0 から過去1時間分（4ファイル）の紛争イベントを取得して地域ごとに振り分け"""
+    import datetime, re
+    print('📰  GDELT: 過去1時間分の紛争イベント取得中...')
     try:
         # 最新ファイルのURL取得
         resp = requests.get(
@@ -271,43 +272,63 @@ def fetch_all_events():
             print('   ⚠ GDELT: ファイルURL取得失敗')
             return {rid: [] for rid in REGIONS}
 
-        # CSV.zip をダウンロードして展開
-        resp = requests.get(export_url, timeout=30)
-        with zipfile.ZipFile(io.BytesIO(resp.content)) as zf:
-            with zf.open(zf.namelist()[0]) as f:
-                content = f.read().decode('utf-8', errors='replace')
+        # 最新ファイルのタイムスタンプから過去1時間分（4ファイル）のURLを生成
+        m = re.search(r'(\d{14})\.export', export_url)
+        if not m:
+            return {rid: [] for rid in REGIONS}
+        latest_dt = datetime.datetime.strptime(m.group(1), '%Y%m%d%H%M%S')
+        base_url  = export_url[:export_url.index(m.group(1))]
+        urls = [
+            f'{base_url}{(latest_dt - datetime.timedelta(minutes=15*i)).strftime("%Y%m%d%H%M%S")}.export.CSV.zip'
+            for i in range(4)
+        ]
 
-        # タブ区切りCSVをパース（紛争イベントのみ抽出）
+        # 各ファイルを取得してパース（重複はGLOBALEVENTIDで除去）
         events = []
-        for line in content.split('\n'):
-            if not line.strip():
-                continue
-            row = line.split('\t')
-            if len(row) < 58:
-                continue
+        seen_ids = set()
+        for url in urls:
             try:
-                if row[28] not in CONFLICT_ROOT_CODES:  # EventRootCode
+                r = requests.get(url, timeout=30)
+                if r.status_code != 200:
                     continue
-                lat = float(row[56]) if row[56] else None   # ActionGeo_Lat
-                lon = float(row[57]) if row[57] else None   # ActionGeo_Long
-                if lat is None or lon is None or (lat == 0 and lon == 0):
-                    continue
-                events.append({
-                    'lat':          lat,
-                    'lon':          lon,
-                    'event_code':   row[26],
-                    'event_root':   row[28],
-                    'goldstein':    float(row[30]) if row[30] else 0.0,
-                    'num_articles': int(row[33])   if row[33] else 0,
-                    'avg_tone':     float(row[34]) if row[34] else 0.0,
-                    'actor1':       row[6],
-                    'actor2':       row[16],
-                    'location':     row[52],
-                })
-            except (ValueError, IndexError):
+                with zipfile.ZipFile(io.BytesIO(r.content)) as zf:
+                    with zf.open(zf.namelist()[0]) as f:
+                        content = f.read().decode('utf-8', errors='replace')
+                for line in content.split('\n'):
+                    if not line.strip():
+                        continue
+                    row = line.split('\t')
+                    if len(row) < 58:
+                        continue
+                    try:
+                        if row[28] not in CONFLICT_ROOT_CODES:
+                            continue
+                        event_id = row[0]
+                        if event_id in seen_ids:
+                            continue
+                        seen_ids.add(event_id)
+                        lat = float(row[56]) if row[56] else None
+                        lon = float(row[57]) if row[57] else None
+                        if lat is None or lon is None or (lat == 0 and lon == 0):
+                            continue
+                        events.append({
+                            'lat':          lat,
+                            'lon':          lon,
+                            'event_code':   row[26],
+                            'event_root':   row[28],
+                            'goldstein':    float(row[30]) if row[30] else 0.0,
+                            'num_articles': int(row[33])   if row[33] else 0,
+                            'avg_tone':     float(row[34]) if row[34] else 0.0,
+                            'actor1':       row[6],
+                            'actor2':       row[16],
+                            'location':     row[52],
+                        })
+                    except (ValueError, IndexError):
+                        continue
+            except Exception:
                 continue
 
-        print(f'   → 全世界 {len(events)} 件の紛争イベント（CAMEO 18-20）')
+        print(f'   → 全世界 {len(events)} 件の紛争イベント（CAMEO 18-20、過去1時間）')
         return _assign_events_to_regions(events)
 
     except Exception as e:
