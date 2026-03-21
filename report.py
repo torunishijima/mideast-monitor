@@ -10,6 +10,10 @@ def generate(results, trend, history, timestamp, all_fires=None, all_events=None
     events_json  = json.dumps(all_events or _events_for_map(results), ensure_ascii=False)
     history_json = json.dumps(_history_for_chart(history), ensure_ascii=False)
     cards_html   = ''.join(_card_html(rid, results[rid], trend[rid]) for rid in results)
+    summary_html = f'''<div style="padding:12px 16px; background:#1a1a2e; border-bottom:1px solid #2a2a4a;">
+  <div style="font-size:11px; color:#888; margin-bottom:6px;">📝 最新情勢サマリー（AI生成）</div>
+  <div style="font-size:13px; color:#ccc; line-height:1.7; white-space:pre-wrap;">{summary}</div>
+</div>''' if summary else ''
 
     return f'''<!DOCTYPE html>
 <html lang="ja">
@@ -82,10 +86,7 @@ footer {{ padding: 10px; font-size: 11px; color: #555; text-align: center; }}
   <span class="updated">更新: {timestamp}</span>
 </header>
 
-{f\'\'\'<div style="padding:12px 16px; background:#1a1a2e; border-bottom:1px solid #2a2a4a;">
-  <div style="font-size:11px; color:#888; margin-bottom:6px;">📝 最新情勢サマリー（AI生成）</div>
-  <div style="font-size:13px; color:#ccc; line-height:1.7; white-space:pre-wrap;">{summary}</div>
-</div>\'\'\' if summary else \'\'}<div class="legend">
+{summary_html}<div class="legend">
   <button id="btn-ships" class="toggle-btn" onclick="toggleLayer('ships')">
     🚢 船舶 <span id="cnt-ships"></span>
   </button>
