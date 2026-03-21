@@ -51,34 +51,55 @@ def save(history):
 
 def calc_trend_scores(history, results):
     """
-    直近24時間のベースラインと現在値を比較してトレンドスコアを計算
-    - baseline: 直近24件の平均スコア
-    - trend_score: 現在値がベースラインより何%上昇しているか
-    - is_surge: トレンドスコアが50%以上 = 急上昇フラグ
+    指標ごとに7日平均比・24時間前比を計算する
+    - week_pct: 過去7日平均（168件）との比較
+    - day_pct:  24時間前（24件前のエントリ）との比較
+    - is_surge: いずれかの指標で24h比が50%以上変化
     """
-    recent = history['entries'][-24:] if len(history['entries']) >= 2 else []
+    entries     = history['entries']
+    week_entries = entries[-168:] if entries else []
+    day_ago      = entries[-24] if len(entries) >= 24 else None
+
     trend = {}
-
     for rid in results:
-        current = results[rid]['anomaly_score']
-        if recent:
-            baseline = sum(
-                e['regions'].get(rid, {}).get('anomaly_score', 0)
-                for e in recent
-            ) / len(recent)
-        else:
-            baseline = current
-
-        if baseline > 1:
-            change_pct = (current - baseline) / baseline * 100
-        else:
-            change_pct = 0
-
-        trend[rid] = {
-            'current':    current,
-            'baseline':   round(baseline, 1),
-            'change_pct': round(change_pct, 1),
-            'is_surge':   change_pct >= 50,
+        data    = results[rid]
+        current = {
+            'ships':  data['ships']['count'],
+            'fires':  data['fires']['count'],
+            'events': data['events']['count'],
         }
+        is_surge   = False
+        indicators = {}
+
+        for key in ('ships', 'fires', 'events'):
+            hist_key = f'{key}_count' if key != 'events' else 'event_count'
+            cur      = current[key]
+
+            # 7日平均比
+            if week_entries:
+                week_avg = sum(e['regions'].get(rid, {}).get(hist_key, 0) for e in week_entries) / len(week_entries)
+                week_pct = round((cur - week_avg) / week_avg * 100, 1) if week_avg > 0.5 else 0
+            else:
+                week_avg, week_pct = cur, 0
+
+            # 24時間前比
+            if day_ago:
+                day_val = day_ago['regions'].get(rid, {}).get(hist_key, 0)
+                day_pct = round((cur - day_val) / day_val * 100, 1) if day_val > 0.5 else 0
+            else:
+                day_val, day_pct = cur, 0
+
+            if abs(day_pct) >= 50:
+                is_surge = True
+
+            indicators[key] = {
+                'current':  cur,
+                'week_avg': round(week_avg, 1),
+                'week_pct': week_pct,
+                'day_val':  day_val if day_ago else cur,
+                'day_pct':  day_pct,
+            }
+
+        trend[rid] = {**indicators, 'is_surge': is_surge}
 
     return trend

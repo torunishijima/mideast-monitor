@@ -52,17 +52,13 @@ def main():
 
     # 結果表示
     for region_id, region in REGIONS.items():
-        data  = results[region_id]
         t     = trend[region_id]
-        score = data['anomaly_score']
-        surge = '🚨 急上昇!' if t['is_surge'] else ''
-        indicator = '🔴' if score > 60 else '🟡' if score > 30 else '🟢'
-        ships  = ships_by_region.get(region_id, [])
-        fires  = fires_by_region.get(region_id, [])
-        events = events_by_region.get(region_id, [])
-        print(f'{indicator} {region["name"]}: 船舶 {len(ships)}隻 / 火災 {len(fires)}件 / イベント {len(events)}件 / スコア {score} {surge}')
-        if t['change_pct'] != 0:
-            print(f'   ベースライン {t["baseline"]} → 現在 {t["current"]} ({t["change_pct"]:+.1f}%)')
+        surge = '🚨' if t['is_surge'] else ''
+        ts, tf, te = t['ships'], t['fires'], t['events']
+        print(f'{surge or "🌍"} {region["name"]}')
+        print(f'   船舶 {ts["current"]}隻  7日比{ts["week_pct"]:+.0f}%  24h比{ts["day_pct"]:+.0f}%')
+        print(f'   火災 {tf["current"]}件  7日比{tf["week_pct"]:+.0f}%  24h比{tf["day_pct"]:+.0f}%')
+        print(f'   紛争 {te["current"]}件  7日比{te["week_pct"]:+.0f}%  24h比{te["day_pct"]:+.0f}%')
 
     # HTML レポート生成
     html = generate(results, trend, history, timestamp)

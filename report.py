@@ -67,6 +67,10 @@ header h1 {{ font-size: 17px; }}
 .tag {{ font-size: 11px; padding: 2px 7px; border-radius: 4px; }}
 .tag.ship {{ background: #0d3d2a; color: #afa; }}
 .divider {{ border: none; border-top: 1px solid #2a2a4a; margin: 8px 0; }}
+.trend-table {{ width: 100%; border-collapse: collapse; font-size: 12px; margin: 6px 0; }}
+.trend-table th {{ color: #666; font-weight: normal; padding: 2px 6px; text-align: right; font-size: 10px; }}
+.trend-table td {{ padding: 3px 6px; text-align: right; color: #ccc; }}
+.trend-table td:first-child {{ text-align: left; color: #888; }}
 footer {{ padding: 10px; font-size: 11px; color: #555; text-align: center; }}
 </style>
 </head>
@@ -350,23 +354,29 @@ def _score_color(score):
     return '#27ae60'
 
 
+def _pct_cell(pct):
+    if pct > 0:
+        return f'<span class="up">▲{pct:+.0f}%</span>'
+    if pct < 0:
+        return f'<span class="down">▼{abs(pct):.0f}%</span>'
+    return '<span style="color:#666">±0%</span>'
+
+
 def _card_html(region_id, data, t):
     region_name = REGIONS[region_id]['name']
-    score       = data['anomaly_score']
     ships       = data.get('ships', {})
     fires       = data.get('fires', {})
     surge_class = 'surge' if t['is_surge'] else ''
+    surge_badge = ' 🚨' if t['is_surge'] else ''
 
-    # トレンド表示
-    cp = t['change_pct']
-    if cp > 0:
-        trend_html = f'<div class="trend">ベースライン {t["baseline"]} → <span class="up">▲{cp:+.1f}%</span></div>'
-    elif cp < 0:
-        trend_html = f'<div class="trend">ベースライン {t["baseline"]} → <span class="down">▼{cp:.1f}%</span></div>'
-    else:
-        trend_html = ''
-
-    surge_badge = ' 🚨 急上昇' if t['is_surge'] else ''
+    ts, tf, te = t['ships'], t['fires'], t['events']
+    trend_html = f'''
+<table class="trend-table">
+  <tr><th></th><th>現在</th><th>7日比</th><th>24h比</th></tr>
+  <tr><td>🚢 船舶</td><td>{ts["current"]}隻</td><td>{_pct_cell(ts["week_pct"])}</td><td>{_pct_cell(ts["day_pct"])}</td></tr>
+  <tr><td>🔥 火災</td><td>{tf["current"]}件</td><td>{_pct_cell(tf["week_pct"])}</td><td>{_pct_cell(tf["day_pct"])}</td></tr>
+  <tr><td>📰 紛争</td><td>{te["current"]}件</td><td>{_pct_cell(te["week_pct"])}</td><td>{_pct_cell(te["day_pct"])}</td></tr>
+</table>'''
 
     ship_tags = ''.join(
         f'<span class="tag ship">{f} ({n})</span>'
@@ -414,7 +424,6 @@ def _card_html(region_id, data, t):
 <div class="card {surge_class}">
   <div class="card-header">
     <span class="region-name">{region_name}{surge_badge}</span>
-    <span class="score" style="background:{_score_color(score)}">スコア {score}</span>
   </div>
   {trend_html}
   {ship_section}
