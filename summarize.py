@@ -74,28 +74,27 @@ def generate_summary(events_global):
             f"articles:{e.get('num_articles',0)} tone:{e.get('avg_tone',0):.1f}"
         )
 
-    prompt = f"""以下は世界の紛争・緊張イベントデータ（GDELT）と関連ニュース記事の内容です。
-日本語で詳細なサマリーを作成してください。
+    prompt = f"""あなたは地政学・国際安全保障の専門アナリストです。
+以下のGDELTデータとニュース記事をもとに、約1000文字の分析記事を日本語で書いてください。
 
-【イベントデータ（上位20件）】
+【GDELTイベントデータ（記事数上位20件）】
 {chr(10).join(event_lines)}
 
-【関連ニュース記事】
+【一次ソース記事】
 {chr(10).join(articles) if articles else '取得できませんでした'}
 
-【サマリー作成の指示】
-- 地域ごとにまとめる（🕌 中東、🇺🇦 ウクライナ・東欧、🌏 東アジア、🌍 その他）
-- 各地域で起きている主要な出来事を具体的に説明する
-- 関係するアクター（国・組織・人物）や背景も含める
-- 重要度が高い情報は詳しく、低いものは簡潔に
-- 見出しは絵文字を使ってわかりやすく
-- 日本語のみで出力"""
+【執筆ルール】
+- 記事タイトルをつける（本質を突いた1行）
+- リード：何が起きているか2〜3文で端的に
+- 本文：①事実整理 ②なぜ今か ③構造的読解 ④展開予測 ⑤日本への含意
+- 約1000文字・日本語のみ・客観的な論調
+- 見出しは絵文字を使う"""
 
     try:
         client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
         message = client.messages.create(
             model='claude-haiku-4-5-20251001',
-            max_tokens=1500,
+            max_tokens=2500,
             messages=[{'role': 'user', 'content': prompt}],
         )
         return message.content[0].text.strip()
