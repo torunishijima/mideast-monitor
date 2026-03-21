@@ -88,6 +88,34 @@ def save_ships(ships_by_region, captured_at):
     print(f'   → Supabase: 船舶 {len(rows)} 隻保存')
 
 
+def save_region_stats(results, captured_at):
+    """地域ごとの件数データを永続保存"""
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        return
+
+    rows = []
+    for region_id, data in results.items():
+        ships = data.get('ships', {})
+        fires = data.get('fires', {})
+        rows.append({
+            'captured_at':        captured_at,
+            'region_id':          region_id,
+            'aircraft_count':     data.get('count', 0),
+            'low_altitude_count': data.get('low_altitude', 0),
+            'ship_count':         ships.get('count', 0),
+            'tanker_count':       ships.get('tankers', 0),
+            'military_count':     ships.get('military', 0),
+            'anchored_count':     ships.get('anchored', 0),
+            'fire_count':         fires.get('count', 0),
+            'high_conf_fire_count': fires.get('high_conf', 0),
+            'intense_fire_count': fires.get('intense', 0),
+            'total_frp':          fires.get('total_frp', 0.0),
+        })
+
+    _post('region_stats', rows)
+    print(f'   → Supabase: 地域統計 {len(rows)} 地域保存')
+
+
 def delete_old_data(hours=48):
     """古いデータを削除（デフォルト48時間以前）"""
     if not SUPABASE_URL or not SUPABASE_KEY:

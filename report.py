@@ -29,12 +29,22 @@ header h1 {{ font-size: 17px; }}
 .updated {{ font-size: 12px; color: #888; margin-left: auto; }}
 #map {{ height: 50vh; }}
 .legend {{ padding: 6px 16px; background: #16213e; border-bottom: 1px solid #2a2a4a;
-           display: flex; gap: 14px; font-size: 11px; color: #aaa; flex-wrap: wrap; }}
+           display: flex; gap: 14px; font-size: 11px; color: #aaa; flex-wrap: wrap; align-items: center; }}
 .legend span {{ display: flex; align-items: center; gap: 4px; }}
 .dot {{ width: 9px; height: 9px; border-radius: 50%; display: inline-block; }}
+.toggle-btn {{ font-size: 11px; padding: 3px 10px; border-radius: 4px; cursor: pointer;
+               border: 1px solid #3a3a5a; background: #2a2a4a; color: #eee;
+               transition: opacity 0.2s; user-select: none; }}
+.toggle-btn.off {{ opacity: 0.35; }}
 .chart-section {{ padding: 14px; background: #16213e; border-bottom: 1px solid #2a2a4a; }}
 .chart-section h2 {{ font-size: 13px; color: #aaa; margin-bottom: 10px; }}
 .chart-wrap {{ position: relative; height: 200px; }}
+.chart-legend {{ display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }}
+.chart-legend label {{ display: flex; align-items: center; gap: 5px; cursor: pointer;
+                        font-size: 11px; padding: 2px 8px; border-radius: 4px;
+                        background: #1a1a2e; color: #ccc; user-select: none; }}
+.chart-legend label:hover {{ background: #2a2a4a; }}
+.chart-legend input[type=checkbox] {{ width: 12px; height: 12px; cursor: pointer; margin: 0; flex-shrink: 0; }}
 .cards {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
           gap: 12px; padding: 12px; }}
 .card {{ background: #16213e; border-radius: 10px; padding: 14px; border: 1px solid #2a2a4a; }}
@@ -70,8 +80,18 @@ footer {{ padding: 10px; font-size: 11px; color: #555; text-align: center; }}
 </header>
 
 <div class="legend">
+  <button id="btn-aircraft" class="toggle-btn" onclick="toggleLayer('aircraft')">
+    ✈️ 航空機 <span id="cnt-aircraft"></span>
+  </button>
+  <button id="btn-ships" class="toggle-btn" onclick="toggleLayer('ships')">
+    🚢 船舶 <span id="cnt-ships"></span>
+  </button>
+  <button id="btn-fires" class="toggle-btn" onclick="toggleLayer('fires')">
+    🔥 火災 <span id="cnt-fires"></span>
+  </button>
+  <span style="margin-left:6px; color:#555;">|</span>
   <span><span class="dot" style="background:#4fc3f7"></span>航空機</span>
-  <span><span class="dot" style="background:#e74c3c"></span>緊急スコーク</span>
+  <span><span class="dot" style="background:#e74c3c"></span>緊急スコーク / 軍用</span>
   <span><span class="dot" style="background:#a8d8a8"></span>船舶</span>
   <span><span class="dot" style="background:#f39c12"></span>タンカー</span>
   <span><span class="dot" style="background:#cc4400"></span>火災 20〜50MW</span>
@@ -97,6 +117,7 @@ footer {{ padding: 10px; font-size: 11px; color: #555; text-align: center; }}
 <div class="chart-section">
   <h2>📈 地域別スコア推移（過去7日間）</h2>
   <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+  <div class="chart-legend" id="chartLegend"></div>
 </div>
 
 <div class="cards">{cards_html}</div>
@@ -113,10 +134,27 @@ const SUPABASE_URL  = 'https://iuyiqlyqfhahwxiwoztd.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1eWlxbHlxZmhhaHd4aXdvenRkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5NDQxOTAsImV4cCI6MjA4OTUyMDE5MH0.VfCuijogWh9UizHIyPxvzD-HarBzrGRWKCyMNwKja3k';
 
 // ── 地図（Canvas レンダラーで高速描画）──────────────────────────
-const renderer  = L.canvas({{ padding: 0.5 }});
-const map       = L.map('map').setView([20, 40], 3);
-const fireLayer = L.layerGroup().addTo(map);
-const shipLayer = L.layerGroup().addTo(map);
+const renderer      = L.canvas({{ padding: 0.5 }});
+const map           = L.map('map').setView([20, 40], 3);
+const aircraftLayer = L.layerGroup().addTo(map);
+const shipLayer     = L.layerGroup().addTo(map);
+const fireLayer     = L.layerGroup().addTo(map);
+
+// レイヤー表示状態
+const layerState = {{ aircraft: true, ships: true, fires: true }};
+
+function toggleLayer(name) {{
+  layerState[name] = !layerState[name];
+  const btn = document.getElementById('btn-' + name);
+  btn.classList.toggle('off', !layerState[name]);
+  const layer = name === 'aircraft' ? aircraftLayer : name === 'ships' ? shipLayer : fireLayer;
+  if (layerState[name]) {{ map.addLayer(layer); }} else {{ map.removeLayer(layer); }}
+}}
+
+function updateCount(name, n) {{
+  const el = document.getElementById('cnt-' + name);
+  if (el) el.textContent = n > 0 ? `(${{n}})` : '';
+}}
 
 L.tileLayer('https://{{s}}.basemaps.cartocdn.com/dark_all/{{z}}/{{x}}/{{y}}{{r}}.png', {{
   attribution: '&copy; OpenStreetMap &copy; CARTO'
@@ -136,8 +174,9 @@ aircraft.forEach(a => {{
   const alt   = a.altitude != null ? Math.round(a.altitude) + ' m' : '不明';
   L.circleMarker([a.lat, a.lon], {{ radius: 3, color, fillColor: color, fillOpacity: 0.8, weight: 1, renderer }})
    .bindPopup(`<b>${{a.callsign || a.icao24}}</b><br>国: ${{a.country}}<br>高度: ${{alt}}`)
-   .addTo(map);
+   .addTo(aircraftLayer);
 }});
+updateCount('aircraft', aircraft.length);
 
 // ── 火災・船舶レンダリング関数 ───────────────────────────────────
 function fireColor(frp) {{
@@ -156,6 +195,7 @@ function renderFires(data) {{
      .bindPopup(`<b>🔥 火災</b><br>強度: ${{f.frp}} MW<br>信頼度: ${{f.confidence}}<br>${{f.acq_date}} ${{f.acq_time}}`)
      .addTo(fireLayer);
   }});
+  updateCount('fires', data.length);
 }}
 
 function renderShips(data) {{
@@ -168,6 +208,7 @@ function renderShips(data) {{
      .bindPopup(`<b>🚢 ${{s.name || s.mmsi}}</b><br>種別: ${{s.type_label}}<br>速度: ${{sog}}<br>状態: ${{s.nav_status}}`)
      .addTo(shipLayer);
   }});
+  updateCount('ships', data.length);
 }}
 
 // 初期表示（HTMLに埋め込まれた現在データ）
@@ -228,7 +269,7 @@ const COLORS = [
 ];
 
 const ctx = document.getElementById('trendChart').getContext('2d');
-new Chart(ctx, {{
+const trendChart = new Chart(ctx, {{
   type: 'line',
   data: {{
     labels: histData.labels,
@@ -246,13 +287,41 @@ new Chart(ctx, {{
     responsive: true,
     maintainAspectRatio: false,
     plugins: {{
-      legend: {{ labels: {{ color: '#aaa', font: {{ size: 11 }}, boxWidth: 12 }} }},
+      legend: {{ display: false }},
     }},
     scales: {{
-      x: {{ ticks: {{ color: '#666', maxTicksLimit: 12, font: {{ size: 10 }} }}, grid: {{ color: '#2a2a4a' }} }},
+      x: {{
+        ticks: {{
+          color: '#666', font: {{ size: 10 }},
+          callback: function(val, index, ticks) {{
+            const n = ticks.length;
+            if (n <= 12) return val;
+            const step = Math.floor(n / 11);
+            return (index % step === 0 || index === n - 1) ? val : null;
+          }},
+        }},
+        grid: {{ color: '#2a2a4a' }},
+      }},
       y: {{ ticks: {{ color: '#666', font: {{ size: 10 }} }}, grid: {{ color: '#2a2a4a' }}, min: 0, max: 100 }},
     }},
   }},
+}});
+
+// カスタム凡例（チェックボックス）
+const legendEl = document.getElementById('chartLegend');
+trendChart.data.datasets.forEach((ds, i) => {{
+  const lbl = document.createElement('label');
+  const cb  = document.createElement('input');
+  cb.type    = 'checkbox';
+  cb.checked = true;
+  cb.style.accentColor = ds.borderColor;
+  cb.onchange = () => {{ trendChart.setDatasetVisibility(i, cb.checked); trendChart.update(); }};
+  const bar = document.createElement('span');
+  bar.style.cssText = `width:16px;height:3px;background:${{ds.borderColor}};display:inline-block;border-radius:2px;flex-shrink:0;`;
+  lbl.appendChild(cb);
+  lbl.appendChild(bar);
+  lbl.appendChild(document.createTextNode(ds.label));
+  legendEl.appendChild(lbl);
 }});
 </script>
 </body>
