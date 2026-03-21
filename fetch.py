@@ -233,7 +233,9 @@ def fetch_all_fires(map_key=None, day_range=1):
 
     all_fires = [f for f in all_fires if f.get('frp', 0) >= 200]
     print(f'   → 全世界 {len(all_fires)} 件の熱源検知（200MW以上）')
-    return _assign_fires_to_regions(all_fires)
+    result = _assign_fires_to_regions(all_fires)
+    result['_global'] = all_fires
+    return result
 
 
 def _assign_fires_to_regions(fires):
@@ -329,7 +331,9 @@ def fetch_all_events():
                 continue
 
         print(f'   → 全世界 {len(events)} 件の紛争イベント（CAMEO 18-20、過去1時間）')
-        return _assign_events_to_regions(events)
+        result = _assign_events_to_regions(events)
+        result['_global'] = events
+        return result
 
     except Exception as e:
         print(f'   ⚠ GDELT 取得失敗: {e}')

@@ -3,11 +3,11 @@ import json
 from config import REGIONS
 
 
-def generate(results, trend, history, timestamp):
+def generate(results, trend, history, timestamp, all_fires=None, all_events=None):
     regions_json = json.dumps(_regions_for_map(results, trend), ensure_ascii=False)
     ships_json   = json.dumps(_ships_for_map(results), ensure_ascii=False)
-    fires_json   = json.dumps(_fires_for_map(results), ensure_ascii=False)
-    events_json  = json.dumps(_events_for_map(results), ensure_ascii=False)
+    fires_json   = json.dumps(all_fires or _fires_for_map(results), ensure_ascii=False)
+    events_json  = json.dumps(all_events or _events_for_map(results), ensure_ascii=False)
     history_json = json.dumps(_history_for_chart(history), ensure_ascii=False)
     cards_html   = ''.join(_card_html(rid, results[rid], trend[rid]) for rid in results)
 

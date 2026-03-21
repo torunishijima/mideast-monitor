@@ -61,7 +61,9 @@ def main():
         print(f'   紛争 {te["current"]}件  7日比{te["week_pct"]:+.0f}%  24h比{te["day_pct"]:+.0f}%')
 
     # HTML レポート生成
-    html = generate(results, trend, history, timestamp)
+    html = generate(results, trend, history, timestamp,
+                    all_fires=fires_by_region.get('_global', []),
+                    all_events=events_by_region.get('_global', []))
     os.makedirs('public', exist_ok=True)
     with open('public/index.html', 'w', encoding='utf-8') as f:
         f.write(html)
