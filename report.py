@@ -119,7 +119,7 @@ footer {{ padding: 10px; font-size: 11px; color: #555; text-align: center; }}
 <div id="map"></div>
 
 <div class="chart-section">
-  <h2>📈 地域別スコア推移（過去7日間）</h2>
+  <h2>📈 指標別件数推移（過去7日間・全地域合計）</h2>
   <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
   <div class="chart-legend" id="chartLegend"></div>
 </div>
@@ -293,22 +293,21 @@ const trendChart = new Chart(ctx, {{
   type: 'line',
   data: {{
     labels: histData.labels,
-    datasets: histData.regions.map((r, i) => ({{
-      label:       r.name,
-      data:        r.scores,
-      borderColor: COLORS[i % COLORS.length],
+    datasets: histData.datasets.map(d => ({{
+      label:           d.label,
+      data:            d.data,
+      borderColor:     d.color,
       backgroundColor: 'transparent',
       borderWidth: 1.5,
       pointRadius: 2,
       tension:     0.3,
+      yAxisID:     d.label.includes('船舶') ? 'yShip' : 'yOther',
     }})),
   }},
   options: {{
     responsive: true,
     maintainAspectRatio: false,
-    plugins: {{
-      legend: {{ display: false }},
-    }},
+    plugins: {{ legend: {{ display: false }} }},
     scales: {{
       x: {{
         ticks: {{
@@ -322,7 +321,8 @@ const trendChart = new Chart(ctx, {{
         }},
         grid: {{ color: '#2a2a4a' }},
       }},
-      y: {{ ticks: {{ color: '#666', font: {{ size: 10 }} }}, grid: {{ color: '#2a2a4a' }}, min: 0, max: 100 }},
+      yShip:  {{ position: 'left',  ticks: {{ color: '#a8d8a8', font: {{ size: 10 }} }}, grid: {{ color: '#2a2a4a' }}, min: 0 }},
+      yOther: {{ position: 'right', ticks: {{ color: '#888',    font: {{ size: 10 }} }}, grid: {{ drawOnChartArea: false }}, min: 0 }},
     }},
   }},
 }});
@@ -496,30 +496,28 @@ def _events_for_map(results):
 
 
 def _history_for_chart(history):
-    """Chart.js 用にデータを整形"""
+    """Chart.js 用にデータを整形（指標別の全地域合計件数）"""
     entries = history.get('entries', [])
     if not entries:
-        return {'labels': [], 'regions': []}
+        return {'labels': [], 'datasets': []}
 
-    labels = []
+    labels, ships_total, fires_total, events_total = [], [], [], []
     for e in entries:
         ts = e['timestamp']
-        # "2026-03-20 01:00:00" → "3/20 01:00"
         try:
-            dt = ts[5:16].replace('-', '/').replace(' ', ' ')
-            labels.append(dt)
+            labels.append(ts[5:16].replace('-', '/'))
         except Exception:
             labels.append(ts)
+        regs = e.get('regions', {})
+        ships_total.append(sum(r.get('ship_count', 0)  for r in regs.values()))
+        fires_total.append(sum(r.get('fire_count', 0)  for r in regs.values()))
+        events_total.append(sum(r.get('event_count', 0) for r in regs.values()))
 
-    region_data = []
-    for rid, region in REGIONS.items():
-        scores = [
-            e['regions'].get(rid, {}).get('anomaly_score', 0)
-            for e in entries
-        ]
-        region_data.append({
-            'name':   region['name'],
-            'scores': scores,
-        })
-
-    return {'labels': labels, 'regions': region_data}
+    return {
+        'labels': labels,
+        'datasets': [
+            {'label': '🚢 船舶',       'data': ships_total,  'color': '#a8d8a8'},
+            {'label': '🔥 火災',       'data': fires_total,  'color': '#ff8800'},
+            {'label': '📰 紛争イベント', 'data': events_total, 'color': '#c678dd'},
+        ],
+    }

@@ -15,6 +15,16 @@ NASA_FIRMS_MAP_KEY = os.environ.get('NASA_FIRMS_MAP_KEY', '')
 SHIP_COLLECT_SECONDS = 300
 
 
+def _fire_fingerprint(fires_by_region):
+    """衛星データが更新されたかを判定するフィンガープリント"""
+    times = set()
+    for fires in fires_by_region.values():
+        for f in fires:
+            if f.get('acq_date') and f.get('acq_time'):
+                times.add(f['acq_date'] + f['acq_time'])
+    return '|'.join(sorted(times))
+
+
 def main():
     timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     print(f'🌍 世界モニタリング開始  {timestamp}\n')
@@ -46,6 +56,17 @@ def main():
 
     # 履歴を更新してトレンドスコアを計算
     history = load_history()
+
+    # 火災データ未更新の場合は前回値を引き継ぐ
+    current_fp = _fire_fingerprint(fires_by_region)
+    if current_fp == history.get('last_fire_fingerprint', '') and history['entries']:
+        last = history['entries'][-1]
+        for rid in results:
+            results[rid]['fires']['count'] = last['regions'].get(rid, {}).get('fire_count', 0)
+        print('   → 火災データ未更新のため前回値を引き継ぎ')
+    else:
+        history['last_fire_fingerprint'] = current_fp
+
     trend   = calc_trend_scores(history, results)
     history = append_history(history, timestamp, results)
     save_history(history)
