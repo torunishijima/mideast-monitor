@@ -101,7 +101,9 @@ footer {{ padding: 10px; font-size: 11px; color: #555; text-align: center; }}
                  background:linear-gradient(to right,#cc4400,#ff8800,#ffff00,#ffffff);"></span>
     🔥 200MW → 1000MW+
   </span>
-  <span><span class="dot" style="background:#c678dd"></span>紛争イベント</span>
+  <span><span class="dot" style="background:#e74c3c"></span>爆撃・暗殺</span>
+  <span><span class="dot" style="background:#e67e22"></span>戦闘</span>
+  <span><span class="dot" style="background:#c678dd"></span>その他紛争</span>
 </div>
 
 <div id="tsSection" style="display:none; padding:10px 16px; background:#16213e; border-bottom:1px solid #2a2a4a;">
@@ -213,13 +215,19 @@ function renderShips(data) {{
   updateCount('ships', data.length);
 }}
 
+function eventColor(code) {{
+  if (['183','186','195','200','201','202','203'].includes(code)) return '#e74c3c';  // 赤: 爆撃・暗殺・大量暴力
+  if (['193','194'].includes(code)) return '#e67e22';                               // オレンジ: 戦闘
+  return '#c678dd';                                                                  // 紫: その他
+}}
+
 function renderEvents(data) {{
   eventLayer.clearLayers();
   data.forEach(e => {{
-    const tone   = e.avg_tone || 0;
+    const color  = eventColor(e.event_code || '');
     const radius = Math.min(4 + Math.floor(e.num_articles / 10), 10);
     L.circleMarker([e.lat, e.lon], {{
-      radius, color: '#c678dd', fillColor: '#c678dd', fillOpacity: 0.6, weight: 1, renderer
+      radius, color, fillColor: color, fillOpacity: 0.6, weight: 1, renderer
     }}).bindPopup(
       `<b>📰 ${{e.event_label || 'Conflict event'}}</b><br>` +
       `${{e.location || ''}}<br>` +
@@ -492,6 +500,7 @@ def _events_for_map(results):
             out.append({
                 'lat':          e['lat'],
                 'lon':          e['lon'],
+                'event_code':   e.get('event_code', ''),
                 'event_label':  e.get('event_label', e.get('event_code', '')),
                 'goldstein':    e.get('goldstein', 0),
                 'num_articles': e.get('num_articles', 0),
