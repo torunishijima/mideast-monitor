@@ -1,13 +1,14 @@
 """データ取得モジュール
-- 航空機: OpenSky Network（全世界を1回取得）
 - 船舶: AISstream.io（全地域を1接続で同時取得）
 - 火災: NASA FIRMS（衛星による熱源検知）
+- 紛争イベント: GDELT 2.0（15分ごと更新）
 """
 import csv
 import io
 import os
 import json
 import asyncio
+import zipfile
 import requests
 import websockets
 
@@ -243,4 +244,83 @@ def _assign_fires_to_regions(fires):
             b = region['bounds']
             if b['lamin'] <= lat <= b['lamax'] and b['lomin'] <= lon <= b['lomax']:
                 result[rid].append(fire)
+    return result
+
+
+# ── GDELT 2.0 紛争イベント ────────────────────────────────────────────────────
+
+# CAMEO EventRootCode: 18=Use of force, 19=Armed force, 20=Mass violence
+CONFLICT_ROOT_CODES = {'18', '19', '20'}
+
+
+def fetch_all_events():
+    """GDELT 2.0 から最新15分の紛争イベントを取得して地域ごとに振り分け"""
+    print('📰  GDELT: 最新紛争イベント取得中...')
+    try:
+        # 最新ファイルのURL取得
+        resp = requests.get(
+            'http://data.gdeltproject.org/gdeltv2/lastupdate.txt', timeout=15
+        )
+        export_url = None
+        for line in resp.text.strip().split('\n'):
+            parts = line.strip().split(' ')
+            if len(parts) == 3 and 'export' in parts[2]:
+                export_url = parts[2]
+                break
+        if not export_url:
+            print('   ⚠ GDELT: ファイルURL取得失敗')
+            return {rid: [] for rid in REGIONS}
+
+        # CSV.zip をダウンロードして展開
+        resp = requests.get(export_url, timeout=30)
+        with zipfile.ZipFile(io.BytesIO(resp.content)) as zf:
+            with zf.open(zf.namelist()[0]) as f:
+                content = f.read().decode('utf-8', errors='replace')
+
+        # タブ区切りCSVをパース（紛争イベントのみ抽出）
+        events = []
+        for line in content.split('\n'):
+            if not line.strip():
+                continue
+            row = line.split('\t')
+            if len(row) < 58:
+                continue
+            try:
+                if row[28] not in CONFLICT_ROOT_CODES:  # EventRootCode
+                    continue
+                lat = float(row[56]) if row[56] else None   # ActionGeo_Lat
+                lon = float(row[57]) if row[57] else None   # ActionGeo_Long
+                if lat is None or lon is None or (lat == 0 and lon == 0):
+                    continue
+                events.append({
+                    'lat':          lat,
+                    'lon':          lon,
+                    'event_code':   row[26],
+                    'event_root':   row[28],
+                    'goldstein':    float(row[30]) if row[30] else 0.0,
+                    'num_articles': int(row[33])   if row[33] else 0,
+                    'avg_tone':     float(row[34]) if row[34] else 0.0,
+                    'actor1':       row[6],
+                    'actor2':       row[16],
+                    'location':     row[52],
+                })
+            except (ValueError, IndexError):
+                continue
+
+        print(f'   → 全世界 {len(events)} 件の紛争イベント（CAMEO 18-20）')
+        return _assign_events_to_regions(events)
+
+    except Exception as e:
+        print(f'   ⚠ GDELT 取得失敗: {e}')
+        return {rid: [] for rid in REGIONS}
+
+
+def _assign_events_to_regions(events):
+    result = {rid: [] for rid in REGIONS}
+    for event in events:
+        lat, lon = event['lat'], event['lon']
+        for rid, region in REGIONS.items():
+            b = region['bounds']
+            if b['lamin'] <= lat <= b['lamax'] and b['lomin'] <= lon <= b['lomax']:
+                result[rid].append(event)
     return result

@@ -2,30 +2,36 @@
 from collections import Counter
 
 
-def analyze(ship_list=None, fire_list=None):
+def analyze(ship_list=None, fire_list=None, event_list=None):
     """
     異常スコア（0〜100）の計算:
-    - タンカー・軍用船が多い     → スコア上昇
-    - 錨泊船が多い（通過回避）   → スコア上昇
-    - 高強度火災（FRP高い）が多い → スコア上昇
+    - タンカー・軍用船が多い       → スコア上昇
+    - 錨泊船が多い（通過回避）     → スコア上昇
+    - 高強度火災（FRP高い）が多い  → スコア上昇
+    - GDELT 紛争イベントが多い     → スコア上昇
     """
-    ship_list = ship_list or []
-    fire_list = fire_list or []
+    ship_list  = ship_list  or []
+    fire_list  = fire_list  or []
+    event_list = event_list or []
 
-    ship_result = _analyze_ships(ship_list)
-    fire_result = _analyze_fires(fire_list)
+    ship_result  = _analyze_ships(ship_list)
+    fire_result  = _analyze_fires(fire_list)
+    event_result = _analyze_events(event_list)
 
-    # 複合スコア（船舶・火災を均等に）
+    # 複合スコア（均等3分割）
     s_score  = ship_result['anomaly_score']
     f_score  = fire_result['anomaly_score']
-    combined = min(round(s_score * 0.5 + f_score * 0.5, 1), 100.0)
+    e_score  = event_result['anomaly_score']
+    combined = min(round((s_score + f_score + e_score) / 3, 1), 100.0)
 
     return {
-        'ships':        ship_result,
-        'fires':        fire_result,
+        'ships':         ship_result,
+        'fires':         fire_result,
+        'events':        event_result,
         'anomaly_score': combined,
-        'ship_score':   s_score,
-        'fire_score':   f_score,
+        'ship_score':    s_score,
+        'fire_score':    f_score,
+        'event_score':   e_score,
     }
 
 
@@ -115,4 +121,34 @@ def _empty_fires():
     return {
         'count': 0, 'high_conf': 0, 'intense': 0,
         'total_frp': 0.0, 'anomaly_score': 0.0, 'fires': [],
+    }
+
+
+def _analyze_events(event_list):
+    if not event_list:
+        return _empty_events()
+
+    total          = len(event_list)
+    avg_goldstein  = sum(e.get('goldstein', 0) for e in event_list) / total
+    total_articles = sum(e.get('num_articles', 0) for e in event_list)
+
+    # スコア: 件数・ネガティブ度・報道規模で計算
+    score = 0.0
+    score += min(total * 5, 50)                   # 件数（最大50点）
+    score += min(-avg_goldstein * 2, 30)           # Goldsteinの負値（最大30点）
+    score += min(total_articles / 20, 20)          # 報道規模（最大20点）
+
+    return {
+        'count':          total,
+        'avg_goldstein':  round(avg_goldstein, 2),
+        'total_articles': total_articles,
+        'anomaly_score':  min(round(score, 1), 100.0),
+        'events':         event_list,
+    }
+
+
+def _empty_events():
+    return {
+        'count': 0, 'avg_goldstein': 0.0, 'total_articles': 0,
+        'anomaly_score': 0.0, 'events': [],
     }

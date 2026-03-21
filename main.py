@@ -3,7 +3,7 @@ import os
 import datetime
 
 from config import REGIONS
-from fetch import fetch_all_ships, fetch_all_fires
+from fetch import fetch_all_ships, fetch_all_fires, fetch_all_events
 from analyze import analyze
 from report import generate
 from history_store import load as load_history, append as append_history, save as save_history, calc_trend_scores
@@ -20,19 +20,21 @@ def main():
     print(f'🌍 世界モニタリング開始  {timestamp}\n')
 
     # データ取得
-    fires_by_region = fetch_all_fires(map_key=NASA_FIRMS_MAP_KEY)
-    ships_by_region = fetch_all_ships(
+    fires_by_region  = fetch_all_fires(map_key=NASA_FIRMS_MAP_KEY)
+    ships_by_region  = fetch_all_ships(
         api_key=AISSTREAM_API_KEY,
         duration=SHIP_COLLECT_SECONDS,
     )
+    events_by_region = fetch_all_events()
 
     # 地域ごとに分析
     print()
     results = {}
     for region_id, region in REGIONS.items():
-        ships = ships_by_region.get(region_id, [])
-        fires = fires_by_region.get(region_id, [])
-        results[region_id] = analyze(ships, fires)
+        ships  = ships_by_region.get(region_id, [])
+        fires  = fires_by_region.get(region_id, [])
+        events = events_by_region.get(region_id, [])
+        results[region_id] = analyze(ships, fires, events)
 
     # Supabase に火災・船舶データを保存
     iso_ts = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -54,9 +56,10 @@ def main():
         score = data['anomaly_score']
         surge = '🚨 急上昇!' if t['is_surge'] else ''
         indicator = '🔴' if score > 60 else '🟡' if score > 30 else '🟢'
-        ships = ships_by_region.get(region_id, [])
-        fires = fires_by_region.get(region_id, [])
-        print(f'{indicator} {region["name"]}: 船舶 {len(ships)}隻 / 火災 {len(fires)}件 / スコア {score} {surge}')
+        ships  = ships_by_region.get(region_id, [])
+        fires  = fires_by_region.get(region_id, [])
+        events = events_by_region.get(region_id, [])
+        print(f'{indicator} {region["name"]}: 船舶 {len(ships)}隻 / 火災 {len(fires)}件 / イベント {len(events)}件 / スコア {score} {surge}')
         if t['change_pct'] != 0:
             print(f'   ベースライン {t["baseline"]} → 現在 {t["current"]} ({t["change_pct"]:+.1f}%)')
 

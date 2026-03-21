@@ -110,6 +110,7 @@ def save_region_stats(results, captured_at):
             'high_conf_fire_count': fires.get('high_conf', 0),
             'intense_fire_count': fires.get('intense', 0),
             'total_frp':          fires.get('total_frp', 0.0),
+            'event_count':        data.get('events', {}).get('count', 0),
         })
 
     _post('region_stats', rows)

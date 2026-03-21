@@ -7,6 +7,7 @@ def generate(results, trend, history, timestamp):
     regions_json = json.dumps(_regions_for_map(results, trend), ensure_ascii=False)
     ships_json   = json.dumps(_ships_for_map(results), ensure_ascii=False)
     fires_json   = json.dumps(_fires_for_map(results), ensure_ascii=False)
+    events_json  = json.dumps(_events_for_map(results), ensure_ascii=False)
     history_json = json.dumps(_history_for_chart(history), ensure_ascii=False)
     cards_html   = ''.join(_card_html(rid, results[rid], trend[rid]) for rid in results)
 
@@ -85,6 +86,9 @@ footer {{ padding: 10px; font-size: 11px; color: #555; text-align: center; }}
   <button id="btn-fires" class="toggle-btn" onclick="toggleLayer('fires')">
     🔥 火災 <span id="cnt-fires"></span>
   </button>
+  <button id="btn-events" class="toggle-btn" onclick="toggleLayer('events')">
+    📰 紛争 <span id="cnt-events"></span>
+  </button>
   <span style="margin-left:6px; color:#555;">|</span>
   <span><span class="dot" style="background:#e74c3c"></span>軍用</span>
   <span><span class="dot" style="background:#a8d8a8"></span>船舶</span>
@@ -93,6 +97,7 @@ footer {{ padding: 10px; font-size: 11px; color: #555; text-align: center; }}
   <span><span class="dot" style="background:#ff8800"></span>火災 50〜200MW</span>
   <span><span class="dot" style="background:#ffff00"></span>火災 200〜1000MW</span>
   <span><span class="dot" style="background:#ffffff"></span>火災 1000MW〜</span>
+  <span><span class="dot" style="background:#c678dd"></span>紛争イベント</span>
 </div>
 
 <div id="tsSection" style="display:none; padding:10px 16px; background:#16213e; border-bottom:1px solid #2a2a4a;">
@@ -117,30 +122,33 @@ footer {{ padding: 10px; font-size: 11px; color: #555; text-align: center; }}
 
 <div class="cards">{cards_html}</div>
 
-<footer>データソース: AISstream.io · NASA FIRMS — 研究・教育目的のみ</footer>
+<footer>データソース: AISstream.io · NASA FIRMS · GDELT 2.0 — 研究・教育目的のみ</footer>
 
 <script>
 const regions  = {regions_json};
 const ships    = {ships_json};
 const fires    = {fires_json};
+const events   = {events_json};
 const histData = {history_json};
 const SUPABASE_URL  = 'https://iuyiqlyqfhahwxiwoztd.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1eWlxbHlxZmhhaHd4aXdvenRkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5NDQxOTAsImV4cCI6MjA4OTUyMDE5MH0.VfCuijogWh9UizHIyPxvzD-HarBzrGRWKCyMNwKja3k';
 
 // ── 地図（Canvas レンダラーで高速描画）──────────────────────────
-const renderer  = L.canvas({{ padding: 0.5 }});
-const map       = L.map('map').setView([20, 40], 3);
-const shipLayer = L.layerGroup().addTo(map);
-const fireLayer = L.layerGroup().addTo(map);
+const renderer   = L.canvas({{ padding: 0.5 }});
+const map        = L.map('map').setView([20, 40], 3);
+const shipLayer  = L.layerGroup().addTo(map);
+const fireLayer  = L.layerGroup().addTo(map);
+const eventLayer = L.layerGroup().addTo(map);
 
 // レイヤー表示状態
-const layerState = {{ ships: true, fires: true }};
+const layerState = {{ ships: true, fires: true, events: true }};
+const layerMap   = {{ ships: shipLayer, fires: fireLayer, events: eventLayer }};
 
 function toggleLayer(name) {{
   layerState[name] = !layerState[name];
   const btn = document.getElementById('btn-' + name);
   btn.classList.toggle('off', !layerState[name]);
-  const layer = name === 'ships' ? shipLayer : fireLayer;
+  const layer = layerMap[name];
   if (layerState[name]) {{ map.addLayer(layer); }} else {{ map.removeLayer(layer); }}
 }}
 
@@ -194,9 +202,27 @@ function renderShips(data) {{
   updateCount('ships', data.length);
 }}
 
+function renderEvents(data) {{
+  eventLayer.clearLayers();
+  data.forEach(e => {{
+    const tone   = e.avg_tone || 0;
+    const radius = Math.min(4 + Math.floor(e.num_articles / 10), 10);
+    L.circleMarker([e.lat, e.lon], {{
+      radius, color: '#c678dd', fillColor: '#c678dd', fillOpacity: 0.6, weight: 1, renderer
+    }}).bindPopup(
+      `<b>📰 紛争イベント</b><br>` +
+      `場所: ${{e.location || '不明'}}<br>` +
+      `アクター: ${{e.actor1 || '不明'}} vs ${{e.actor2 || '不明'}}<br>` +
+      `記事数: ${{e.num_articles}}　Goldstein: ${{e.goldstein}}`
+    ).addTo(eventLayer);
+  }});
+  updateCount('events', data.length);
+}}
+
 // 初期表示（HTMLに埋め込まれた現在データ）
 renderFires(fires);
 renderShips(ships);
+renderEvents(events);
 
 // ── タイムスライダー（Supabase 履歴） ───────────────────────────
 let timestamps = [];
@@ -365,6 +391,18 @@ def _card_html(region_id, data, t):
   <div class="stat"><span class="num fire">{fires["total_frp"]}</span><span class="label">総強度MW</span></div>
 </div>'''
 
+    events     = data.get('events', {})
+    event_section = ''
+    if events.get('count', 0) > 0:
+        event_section = f'''
+<hr class="divider">
+<div class="section-title">📰 紛争イベント（GDELT）</div>
+<div class="stats">
+  <div class="stat"><span class="num" style="color:#c678dd">{events["count"]}</span><span class="label">件数</span></div>
+  <div class="stat"><span class="num" style="color:#c678dd">{events["avg_goldstein"]}</span><span class="label">Goldstein平均</span></div>
+  <div class="stat"><span class="num" style="color:#c678dd">{events["total_articles"]}</span><span class="label">報道記事数</span></div>
+</div>'''
+
     return f'''
 <div class="card {surge_class}">
   <div class="card-header">
@@ -374,6 +412,7 @@ def _card_html(region_id, data, t):
   {trend_html}
   {ship_section}
   {fire_section}
+  {event_section}
 </div>'''
 
 
@@ -414,6 +453,29 @@ def _fires_for_map(results):
     for rid, data in results.items():
         for f in data.get('fires', {}).get('fires', []):
             out.append(f)
+    return out
+
+
+def _events_for_map(results):
+    out = []
+    seen = set()
+    for rid, data in results.items():
+        for e in data.get('events', {}).get('events', []):
+            key = (e['lat'], e['lon'], e.get('event_code'))
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append({
+                'lat':          e['lat'],
+                'lon':          e['lon'],
+                'event_code':   e.get('event_code', ''),
+                'goldstein':    e.get('goldstein', 0),
+                'num_articles': e.get('num_articles', 0),
+                'avg_tone':     e.get('avg_tone', 0),
+                'actor1':       e.get('actor1', ''),
+                'actor2':       e.get('actor2', ''),
+                'location':     e.get('location', ''),
+            })
     return out
 
 
