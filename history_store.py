@@ -72,7 +72,7 @@ def calc_trend_scores(history, results):
         indicators = {}
 
         for key in ('ships', 'fires', 'events'):
-            hist_key = f'{key}_count' if key != 'events' else 'event_count'
+            hist_key = {'ships': 'ship_count', 'fires': 'fire_count', 'events': 'event_count'}[key]
             cur      = current[key]
 
             # 7日平均比

@@ -15,62 +15,6 @@ import websockets
 from config import REGIONS
 
 
-def fetch_all_aircraft(username=None, password=None):
-    """OpenSky Network から全世界の航空機を一括取得して地域ごとに振り分け"""
-    url  = 'https://opensky-network.org/api/states/all'
-    auth = (username, password) if username and password else None
-    print('✈️  OpenSky: 全世界データ取得中...')
-    try:
-        resp = requests.get(url, auth=auth, timeout=30)
-        if resp.status_code == 200:
-            states = resp.json().get('states', []) or []
-            print(f'   → 全世界 {len(states)} 機取得')
-            result = _assign_to_regions(states)
-            result['_global'] = [
-                parse_one_aircraft(s) for s in states
-                if s and s[5] is not None and s[6] is not None
-            ]
-            return result
-        elif resp.status_code == 429:
-            print('   ⚠ OpenSky API レート制限')
-            return {rid: [] for rid in REGIONS} | {'_global': []}
-        else:
-            print(f'   ⚠ OpenSky API エラー: {resp.status_code}')
-            return {rid: [] for rid in REGIONS} | {'_global': []}
-    except Exception as e:
-        print(f'   ⚠ 航空機データ取得失敗: {e}')
-        return {rid: [] for rid in REGIONS} | {'_global': []}
-
-
-def _assign_to_regions(states):
-    """全航空機を各地域のバウンディングボックスで振り分け"""
-    result = {rid: [] for rid in REGIONS}
-    for s in states:
-        if s is None or s[5] is None or s[6] is None:
-            continue
-        lon, lat = s[5], s[6]
-        for rid, region in REGIONS.items():
-            b = region['bounds']
-            if b['lamin'] <= lat <= b['lamax'] and b['lomin'] <= lon <= b['lomax']:
-                result[rid].append(parse_one_aircraft(s))
-    return result
-
-
-def parse_one_aircraft(s):
-    return {
-        'icao24':   s[0],
-        'callsign': (s[1] or '').strip(),
-        'country':  s[2] or 'Unknown',
-        'lon':       s[5],
-        'lat':       s[6],
-        'altitude':  s[7],
-        'on_ground': s[8],
-        'velocity':  s[9],
-        'heading':   s[10],
-        'squawk':    s[14],
-    }
-
-
 # 船舶の航行ステータス
 NAV_STATUS = {
     0: '航行中', 1: '錨泊中', 2: '操縦不能',

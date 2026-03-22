@@ -100,8 +100,6 @@ def save_region_stats(results, captured_at):
         rows.append({
             'captured_at':        captured_at,
             'region_id':          region_id,
-            'aircraft_count':     data.get('count', 0),
-            'low_altitude_count': data.get('low_altitude', 0),
             'ship_count':         ships.get('count', 0),
             'tanker_count':       ships.get('tankers', 0),
             'military_count':     ships.get('military', 0),

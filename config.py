@@ -81,20 +81,3 @@ REGIONS = {
         'bounds': {'lamin': 30.0, 'lomin': -6.0, 'lamax': 46.0, 'lomax': 22.0},
     },
 }
-
-# 軍事・外交的に注目すべき国
-NOTABLE_COUNTRIES = [
-    'United States', 'United Kingdom', 'Israel', 'Iran', 'France',
-    'Saudi Arabia', 'Jordan', 'United Arab Emirates', 'Russia', 'Turkey',
-    'China', 'North Korea', 'South Korea', 'Japan', 'Taiwan',
-]
-
-# 緊急スコークコード
-EMERGENCY_SQUAWKS = {
-    '7500': 'ハイジャック',
-    '7600': '無線障害',
-    '7700': '緊急事態',
-}
-
-# 低高度の閾値（メートル）
-LOW_ALTITUDE_THRESHOLD = 3000
