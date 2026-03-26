@@ -342,7 +342,7 @@ const trendChart = new Chart(ctx, {{
       borderWidth: 1.5,
       pointRadius: 2,
       tension:     0.3,
-      yAxisID:     d.label.includes('船舶') ? 'yShip' : 'yOther',
+      yAxisID:     d.label.includes('船舶') ? 'yShip' : d.label.includes('火災') ? 'yFire' : 'yEvent',
     }})),
   }},
   options: {{
@@ -370,7 +370,8 @@ const trendChart = new Chart(ctx, {{
         grid: {{ color: '#2a2a4a' }},
       }},
       yShip:  {{ position: 'left',  ticks: {{ color: '#a8d8a8', font: {{ size: 10 }} }}, grid: {{ color: '#2a2a4a' }}, min: 0 }},
-      yOther: {{ position: 'right', ticks: {{ color: '#888',    font: {{ size: 10 }} }}, grid: {{ drawOnChartArea: false }}, min: 0 }},
+      yFire:  {{ display: false, min: 0 }},
+      yEvent: {{ display: false, min: 0 }},
     }},
   }},
 }});
