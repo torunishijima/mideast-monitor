@@ -53,6 +53,7 @@ header h1 {{ font-size: 17px; }}
           gap: 12px; padding: 12px; }}
 .card {{ background: #16213e; border-radius: 10px; padding: 14px; border: 1px solid #2a2a4a; }}
 .card.surge {{ border-color: #e74c3c; box-shadow: 0 0 8px rgba(231,76,60,0.3); }}
+.card.active {{ border-color: #3498db; box-shadow: 0 0 10px rgba(52,152,219,0.4); }}
 .card-header {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }}
 .region-name {{ font-weight: 600; font-size: 14px; }}
 .score {{ font-size: 12px; font-weight: bold; color: #fff; padding: 3px 10px; border-radius: 12px; }}
@@ -125,7 +126,7 @@ footer {{ padding: 10px; font-size: 11px; color: #555; text-align: center; }}
 <div id="map"></div>
 
 <div class="chart-section">
-  <h2>📈 指標別件数推移（過去7日間・全地域合計）</h2>
+  <h2 id="chartTitle">📈 指標別件数推移（過去7日間・全地域合計）</h2>
   <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
   <div class="chart-legend" id="chartLegend"></div>
 </div>
@@ -149,6 +150,7 @@ const renderer   = L.canvas({{ padding: 0.5 }});
 const map        = L.map('map', {{
   maxBounds: [[-90, -180], [90, 180]],
   maxBoundsViscosity: 1.0,
+
 }}).setView([20, 40], 3);
 const shipLayer  = L.layerGroup().addTo(map);
 const fireLayer  = L.layerGroup().addTo(map);
@@ -177,10 +179,11 @@ L.tileLayer('https://{{s}}.basemaps.cartocdn.com/dark_all/{{z}}/{{x}}/{{y}}{{r}}
 
 // 監視地域ボックス
 Object.entries(regions).forEach(([id, r]) => {{
-  const color = r.surge ? '#e74c3c' : r.score > 60 ? '#e74c3c' : r.score > 30 ? '#f39c12' : '#27ae60';
+  const color = r.surge ? '#e74c3c' : r.week_pct_max > 50 ? '#f39c12' : '#27ae60';
   L.rectangle(r.bounds, {{ color, weight: r.surge ? 2 : 1, fillOpacity: r.surge ? 0.15 : 0.06, renderer }})
    .addTo(map)
-   .bindTooltip(`${{r.name}}　スコア: ${{r.score}}${{r.surge ? ' 🚨急上昇' : ''}}`, {{ sticky: true }});
+   .bindTooltip(`${{r.name}}${{r.surge ? ' 🚨急上昇' : ''}}`, {{ sticky: true }})
+   .on('click', (e) => {{ L.DomEvent.stopPropagation(e); switchChart(id, r.name); }});
 }});
 
 // ── 火災・船舶レンダリング関数 ───────────────────────────────────
@@ -376,6 +379,39 @@ const trendChart = new Chart(ctx, {{
   }},
 }});
 
+// 地図の地域外クリックで全地域合計に戻す
+map.on('click', () => {{
+  if (activeRegion) switchChart(activeRegion, '');
+}});
+
+// 地域クリック時のチャート切り替え
+let activeRegion = null;
+function switchChart(rid, name) {{
+  if (activeRegion === rid) {{
+    // 同じ地域を再クリック → 全地域合計に戻す
+    activeRegion = null;
+    document.getElementById('chartTitle').textContent = '📈 指標別件数推移（過去7日間・全地域合計）';
+    trendChart.data.datasets[0].data = histData.datasets[0].data;
+    trendChart.data.datasets[1].data = histData.datasets[1].data;
+    trendChart.data.datasets[2].data = histData.datasets[2].data;
+    document.querySelectorAll('.card.active').forEach(el => el.classList.remove('active'));
+  }} else {{
+    activeRegion = rid;
+    const rd = histData.by_region[rid];
+    if (!rd) return;
+    document.getElementById('chartTitle').textContent = `📈 指標別件数推移（過去7日間・${{name}}）`;
+    trendChart.data.datasets[0].data = rd.ships;
+    trendChart.data.datasets[1].data = rd.fires;
+    trendChart.data.datasets[2].data = rd.events;
+    document.querySelectorAll('.card.active').forEach(el => el.classList.remove('active'));
+    const card = document.getElementById(`card-${{rid}}`);
+    if (card) {{
+      card.classList.add('active');
+    }}
+  }}
+  trendChart.update();
+}}
+
 // カスタム凡例（チェックボックス）
 const legendEl = document.getElementById('chartLegend');
 trendChart.data.datasets.forEach((ds, i) => {{
@@ -396,11 +432,6 @@ trendChart.data.datasets.forEach((ds, i) => {{
 </body>
 </html>'''
 
-
-def _score_color(score):
-    if score > 60: return '#e74c3c'
-    if score > 30: return '#f39c12'
-    return '#27ae60'
 
 
 def _pct_cell(pct):
@@ -470,7 +501,7 @@ def _card_html(region_id, data, t):
 </div>'''
 
     return f'''
-<div class="card {surge_class}">
+<div class="card {surge_class}" id="card-{region_id}">
   <div class="card-header">
     <span class="region-name">{region_name}{surge_badge}</span>
   </div>
@@ -490,7 +521,7 @@ def _regions_for_map(results, trend):
             'name':   r['name'],
             'center': r['center'],
             'bounds': [[b['lamin'], b['lomin']], [b['lamax'], b['lomax']]],
-            'score':  data['anomaly_score'],
+            'week_pct_max': max(trend[rid]['ships']['week_pct'], trend[rid]['fires']['week_pct'], trend[rid]['events']['week_pct']),
             'surge':  trend[rid]['is_surge'],
         }
     return out
@@ -552,6 +583,7 @@ def _history_for_chart(history):
         return {'labels': [], 'datasets': []}
 
     labels, ships_total, fires_total, events_total = [], [], [], []
+    by_region = {}
     for e in entries:
         ts = e['timestamp']
         try:
@@ -562,6 +594,12 @@ def _history_for_chart(history):
         ships_total.append(sum(r.get('ship_count', 0)  for r in regs.values()))
         fires_total.append(sum(r.get('fire_count', 0)  for r in regs.values()))
         events_total.append(sum(r.get('event_count', 0) for r in regs.values()))
+        for rid, rdata in regs.items():
+            if rid not in by_region:
+                by_region[rid] = {'ships': [], 'fires': [], 'events': []}
+            by_region[rid]['ships'].append(rdata.get('ship_count', 0))
+            by_region[rid]['fires'].append(rdata.get('fire_count', 0))
+            by_region[rid]['events'].append(rdata.get('event_count', 0))
 
     return {
         'labels': labels,
@@ -570,4 +608,5 @@ def _history_for_chart(history):
             {'label': '🔥 火災',       'data': fires_total,  'color': '#ff8800'},
             {'label': '📰 紛争イベント', 'data': events_total, 'color': '#c678dd'},
         ],
+        'by_region': by_region,
     }

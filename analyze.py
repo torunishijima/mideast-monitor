@@ -1,37 +1,16 @@
-"""分析モジュール: 船舶・火災データから異常スコアを計算"""
+"""分析モジュール: 船舶・火災・紛争データを集計する"""
 from collections import Counter
 
 
 def analyze(ship_list=None, fire_list=None, event_list=None):
-    """
-    異常スコア（0〜100）の計算:
-    - タンカー・軍用船が多い       → スコア上昇
-    - 錨泊船が多い（通過回避）     → スコア上昇
-    - 高強度火災（FRP高い）が多い  → スコア上昇
-    - GDELT 紛争イベントが多い     → スコア上昇
-    """
     ship_list  = ship_list  or []
     fire_list  = fire_list  or []
     event_list = event_list or []
 
-    ship_result  = _analyze_ships(ship_list)
-    fire_result  = _analyze_fires(fire_list)
-    event_result = _analyze_events(event_list)
-
-    # 複合スコア（均等3分割）
-    s_score  = ship_result['anomaly_score']
-    f_score  = fire_result['anomaly_score']
-    e_score  = event_result['anomaly_score']
-    combined = min(round((s_score + f_score + e_score) / 3, 1), 100.0)
-
     return {
-        'ships':         ship_result,
-        'fires':         fire_result,
-        'events':        event_result,
-        'anomaly_score': combined,
-        'ship_score':    s_score,
-        'fire_score':    f_score,
-        'event_score':   e_score,
+        'ships':  _analyze_ships(ship_list),
+        'fires':  _analyze_fires(fire_list),
+        'events': _analyze_events(event_list),
     }
 
 
@@ -66,12 +45,6 @@ def _analyze_ships(ship_list):
             destinations[dest] += 1
 
     total = len(ship_list)
-    score = 0.0
-    score += (len(tankers)  / total) * 30
-    score += (len(military) / total) * 40
-    score += (len(anchored) / total) * 20
-    score += min(len(military) * 10, 10)
-
     return {
         'count':        total,
         'tankers':      len(tankers),
@@ -79,7 +52,6 @@ def _analyze_ships(ship_list):
         'anchored':     len(anchored),
         'flags':        dict(flags.most_common(10)),
         'destinations': dict(destinations.most_common(5)),
-        'anomaly_score': min(round(score, 1), 100.0),
         'ships':        ship_list,
     }
 
@@ -87,7 +59,7 @@ def _analyze_ships(ship_list):
 def _empty_ships():
     return {
         'count': 0, 'tankers': 0, 'military': 0, 'anchored': 0,
-        'flags': {}, 'destinations': {}, 'anomaly_score': 0.0, 'ships': [],
+        'flags': {}, 'destinations': {}, 'ships': [],
     }
 
 
@@ -101,18 +73,11 @@ def _analyze_fires(fire_list):
     intense   = [f for f in high_conf if f.get('frp', 0) >= 1000]
     total_frp = sum(f.get('frp', 0) for f in high_conf)
 
-    # スコア: 高信頼度の件数と強度で計算
-    score = 0.0
-    score += min(len(high_conf) * 5, 40)   # 件数（最大40点）
-    score += min(len(intense) * 10, 40)     # 超大規模（最大40点）
-    score += min(total_frp / 2000, 20)      # 総強度（最大20点）
-
     return {
         'count':      len(fire_list),
         'high_conf':  len(high_conf),
         'intense':    len(intense),
         'total_frp':  round(total_frp, 1),
-        'anomaly_score': min(round(score, 1), 100.0),
         'fires':      fire_list,
     }
 
@@ -120,7 +85,7 @@ def _analyze_fires(fire_list):
 def _empty_fires():
     return {
         'count': 0, 'high_conf': 0, 'intense': 0,
-        'total_frp': 0.0, 'anomaly_score': 0.0, 'fires': [],
+        'total_frp': 0.0, 'fires': [],
     }
 
 
@@ -132,17 +97,10 @@ def _analyze_events(event_list):
     avg_goldstein  = sum(e.get('goldstein', 0) for e in event_list) / total
     total_articles = sum(e.get('num_articles', 0) for e in event_list)
 
-    # スコア: 件数・ネガティブ度・報道規模で計算
-    score = 0.0
-    score += min(total * 5, 50)                   # 件数（最大50点）
-    score += min(-avg_goldstein * 2, 30)           # Goldsteinの負値（最大30点）
-    score += min(total_articles / 20, 20)          # 報道規模（最大20点）
-
     return {
         'count':          total,
         'avg_goldstein':  round(avg_goldstein, 2),
         'total_articles': total_articles,
-        'anomaly_score':  min(round(score, 1), 100.0),
         'events':         event_list,
     }
 
