@@ -93,10 +93,10 @@ def main():
                     all_fires=fires_by_region.get('_global', []),
                     all_events=events_by_region.get('_global', []),
                     summary=summary)
-    os.makedirs('public', exist_ok=True)
-    with open('public/index.html', 'w', encoding='utf-8') as f:
+    os.makedirs('docs', exist_ok=True)
+    with open('docs/index.html', 'w', encoding='utf-8') as f:
         f.write(html)
-    print(f'\n✅ レポート生成完了: public/index.html')
+    print(f'\n✅ レポート生成完了: docs/index.html')
 
 
 if __name__ == '__main__':

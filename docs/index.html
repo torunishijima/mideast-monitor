@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>世界の緊張地帯 活動モニター</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #1a1a2e; color: #eee; }
+header { padding: 14px 20px; background: #16213e; border-bottom: 1px solid #2a2a4a;
+          display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+header h1 { font-size: 17px; }
+.updated { font-size: 12px; color: #888; margin-left: auto; }
+#map { height: 50vh; }
+.legend { padding: 6px 16px; background: #16213e; border-bottom: 1px solid #2a2a4a;
+           display: flex; gap: 14px; font-size: 11px; color: #aaa; flex-wrap: wrap; align-items: center; }
+.legend span { display: flex; align-items: center; gap: 4px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.toggle-btn { font-size: 11px; padding: 3px 10px; border-radius: 4px; cursor: pointer;
+               border: 1px solid #3a3a5a; background: #2a2a4a; color: #eee;
+               transition: opacity 0.2s; user-select: none; }
+.toggle-btn.off { opacity: 0.35; }
+.chart-section { padding: 14px; background: #16213e; border-bottom: 1px solid #2a2a4a; }
+.chart-section h2 { font-size: 13px; color: #aaa; margin-bottom: 10px; }
+.chart-wrap { position: relative; height: 200px; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+.chart-legend label { display: flex; align-items: center; gap: 5px; cursor: pointer;
+                        font-size: 11px; padding: 2px 8px; border-radius: 4px;
+                        background: #1a1a2e; color: #ccc; user-select: none; }
+.chart-legend label:hover { background: #2a2a4a; }
+.chart-legend input[type=checkbox] { width: 12px; height: 12px; cursor: pointer; margin: 0; flex-shrink: 0; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+          gap: 12px; padding: 12px; }
+.card { background: #16213e; border-radius: 10px; padding: 14px; border: 1px solid #2a2a4a; }
+.card.surge { border-color: #e74c3c; box-shadow: 0 0 8px rgba(231,76,60,0.3); }
+.card.active { border-color: #3498db; box-shadow: 0 0 10px rgba(52,152,219,0.4); }
+.card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.region-name { font-weight: 600; font-size: 14px; }
+.score { font-size: 12px; font-weight: bold; color: #fff; padding: 3px 10px; border-radius: 12px; }
+.trend { font-size: 11px; margin-bottom: 10px; color: #aaa; }
+.trend .up { color: #e74c3c; font-weight: bold; }
+.trend .down { color: #27ae60; }
+.section-title { font-size: 11px; color: #888; margin: 8px 0 5px; text-transform: uppercase; letter-spacing: 0.5px; }
+.stats { display: flex; gap: 14px; margin-bottom: 4px; }
+.stat .num { display: block; font-size: 19px; font-weight: bold; color: #4fc3f7; }
+.stat .num.ship { color: #a8d8a8; }
+.stat .num.fire { color: #ff8c00; }
+.stat .label { font-size: 10px; color: #888; }
+.alert { background: #4a1010; border: 1px solid #c0392b; border-radius: 6px;
+          padding: 7px 10px; font-size: 12px; margin: 6px 0; }
+.tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+.tag { font-size: 11px; padding: 2px 7px; border-radius: 4px; }
+.tag.ship { background: #0d3d2a; color: #afa; }
+.divider { border: none; border-top: 1px solid #2a2a4a; margin: 8px 0; }
+.trend-table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 6px 0; }
+.trend-table th { color: #666; font-weight: normal; padding: 2px 6px; text-align: right; font-size: 10px; }
+.trend-table td { padding: 3px 6px; text-align: right; color: #ccc; }
+.trend-table td:first-child { text-align: left; color: #888; }
+footer { padding: 10px; font-size: 11px; color: #555; text-align: center; }
+</style>
+</head>
+<body>
+
+<header>
+  <span style="font-size:22px">🌍</span>
+  <h1>世界の緊張地帯 船舶・火災・紛争モニター</h1>
+  <span class="updated">更新: 2026-03-26 00:03:31</span>
+</header>
+
+<div class="legend">
+  <button id="btn-ships" class="toggle-btn" onclick="toggleLayer('ships')">
+    🚢 船舶 <span id="cnt-ships"></span>
+  </button>
+  <button id="btn-fires" class="toggle-btn" onclick="toggleLayer('fires')">
+    🔥 火災 <span id="cnt-fires"></span>
+  </button>
+  <button id="btn-events" class="toggle-btn" onclick="toggleLayer('events')">
+    📰 紛争 <span id="cnt-events"></span>
+  </button>
+  <span style="margin-left:6px; color:#555;">|</span>
+  <span><span class="dot" style="background:#e74c3c"></span>軍用</span>
+  <span><span class="dot" style="background:#a8d8a8"></span>船舶</span>
+  <span><span class="dot" style="background:#f39c12"></span>タンカー</span>
+  <span style="display:flex;align-items:center;gap:5px;">
+    <span style="width:80px;height:8px;border-radius:4px;display:inline-block;
+                 background:linear-gradient(to right,#cc4400,#ff8800,#ffff00,#ffffff);"></span>
+    🔥 200MW → 1000MW+
+  </span>
+  <span><span class="dot" style="background:#e74c3c"></span>爆撃・暗殺</span>
+  <span><span class="dot" style="background:#e67e22"></span>戦闘</span>
+  <span><span class="dot" style="background:#c678dd"></span>その他紛争</span>
+</div>
+
+<div id="tsSection" style="display:none; padding:10px 16px; background:#16213e; border-bottom:1px solid #2a2a4a;">
+  <div style="display:flex; align-items:center; gap:12px;">
+    <span style="font-size:12px; color:#888;">⏱ 履歴</span>
+    <input type="range" id="tsSlider" min="0" value="0" step="1" style="flex:1; accent-color:#4fc3f7;"
+           oninput="onSliderChange(+this.value)">
+    <span id="tsLabel" style="font-size:12px; color:#eee; min-width:130px; text-align:right;"></span>
+    <button id="tsNowBtn" onclick="goToLatest()"
+            style="font-size:11px; padding:3px 10px; background:#2a2a4a; color:#aaa;
+                   border:1px solid #3a3a5a; border-radius:4px; cursor:pointer;">現在</button>
+  </div>
+</div>
+
+<div id="map"></div>
+
+<div class="chart-section">
+  <h2 id="chartTitle">📈 指標別件数推移（過去7日間・全地域合計）</h2>
+  <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+  <div class="chart-legend" id="chartLegend"></div>
+</div>
+
+<div class="cards">
+<div class="card " id="card-red_sea">
+  <div class="card-header">
+    <span class="region-name">紅海</span>
+  </div>
+  
+<table class="trend-table">
+  <tr><th></th><th>現在</th><th>7日比</th><th>24h比</th></tr>
+  <tr><td>🚢 船舶</td><td>0隻</td><td><span style="color:#666">±0%</span></td><td><span style="color:#666">±0%</span></td></tr>
+  <tr><td>🔥 火災</td><td>0件</td><td><span class="down">▼100%</span></td><td><span style="color:#666">±0%</span></td></tr>
+  <tr><td>📰 紛争</td><td>6件</td><td><span class="up">▲+241%</span></td><td><span class="up">▲+20%</span></td></tr>
+</table>
+  
+  
+  
+<hr class="divider">
+<div class="section-title">📰 紛争イベント（GDELT）</div>
+<div class="stats">
+  <div class="stat"><span class="num" style="color:#c678dd">6</span><span class="label">件数</span></div>
+  <div class="stat"><span class="num" style="color:#c678dd">0.0</span><span class="label">Goldstein平均</span></div>
+  <div class="stat"><span class="num" style="color:#c678dd">0</span><span class="label">報道記事数</span></div>
+</div>
+</div>
+<div class="card surge" id="card-strait_of_hormuz">
+  <div class="card-header">
+    <span class="region-name">ホルムズ海峡 🚨</span>
+  </div>
+  
+<table class="trend-table">
+  <tr><th></th><th>現在</th><th>7日比</th><th>24h比</th></tr>
+  <tr><td>🚢 船舶</td><td>30隻</td><td><span class="up">▲+13%</span></td><td><span style="color:#666">±0%</span></td></tr>
+  <tr><td>🔥 火災</td><td>0件</td><td><span class="down">▼100%</span></td><td><span style="color:#666">±0%</span></td></tr>
+  <tr><td>📰 紛争</td><td>3件</td><td><span class="down">▼28%</span></td><td><span class="up">▲+200%</span></td></tr>
+</table>
+  
+<hr class="divider">
+<div class="section-title">🚢 船舶</div>
+<div class="stats">
+  <div class="stat"><span class="num ship">30</span><span class="label">船舶</span></div>
+  <div class="stat"><span class="num ship">0</span><span class="label">タンカー</span></div>
+  <div class="stat"><span class="num ship">0</span><span class="label">軍用</span></div>
+  <div class="stat"><span class="num ship">0</span><span class="label">錨泊</span></div>
+</div>
+<div class="tags"></div>
+  
+  
+<hr class="divider">
+<div class="section-title">📰 紛争イベント（GDELT）</div>
+<div class="stats">
+  <div class="stat"><span class="num" style="color:#c678dd">3</span><span class="label">件数</span></div>
+  <div class="stat"><span class="num" style="color:#c678dd">0.0</span><span class="label">Goldstein平均</span></div>
+  <div class="stat"><span class="num" style="color:#c678dd">0</span><span class="label">報道記事数</span></div>
+</div>
+</div>
+<div class="card surge" id="card-eastern_med">
+  <div class="card-header">
+    <span class="region-name">東地中海（イスラエル周辺） 🚨</span>
+  </div>
+  
+<table class="trend-table">
+  <tr><th></th><th>現在</th><th>7日比</th><th>24h比</th></tr>
+  <tr><td>🚢 船舶</td><td>79隻</td><td><span class="down">▼12%</span></td><td><span style="color:#666">±0%</span></td></tr>
+  <tr><td>🔥 火災</td><td>0件</td><td><span class="down">▼100%</span></td><td><span style="color:#666">±0%</span></td></tr>
+  <tr><td>📰 紛争</td><td>36件</td><td><span class="down">▼18%</span></td><td><span class="down">▼65%</span></td></tr>
+</table>
+  
+<hr class="divider">
+<div class="section-title">🚢 船舶</div>
+<div class="stats">
+  <div class="stat"><span class="num ship">79</span><span class="label">船舶</span></div>
+  <div class="stat"><span class="num ship">0</span><span class="label">タンカー</span></div>
+  <div class="stat"><span class="num ship">0</span><span class="label">軍用</span></div>
+  <div class="stat"><span class="num ship">0</span><span class="label">錨泊</span></div>
+</div>
+<div class="tags"></div>
+  
+  
+<hr class="divider">
+<div class="section-title">📰 紛争イベント（GDELT）</div>
+<div class="stats">
+  <div class="stat"><span class="num" style="color:#c678dd">36</span><span class="label">件数</span></div>
+  <div class="stat"><span class="num" style="color:#c678dd">0.0</span><span class="label">Goldstein平均</span></div>
+  <div class="stat"><span class="num" style="color:#c678dd">0</span><span class="label">報道記事数</span></div>
+</div>
+</div>
+<div class="card " id="card-persian_gulf">
+  <div class="card-header">
+    <span class="region-name">ペルシャ湾</span>
+  </div>
+  
+<table class="trend-table">
+  <tr><th></th><th>現在</th><th>7日比</th><th>24h比</th></tr>
+  <tr><td>🚢 船舶</td><td>30隻</td><td><span class="up">▲+13%</span></td><td><span style="color:#666">±0%</span></td></tr>
+  <tr><td>🔥 火災</td><td>0件</td><td><span class="down">▼100%</span></td><td><span style="color:#666">±0%</span></td></tr>
+  <tr><td>📰 紛争</td><td>9件</td><td><span class="down">▼6%</span></td><td><span class="down">▼44%</span></td></tr>
+</table>
+  
+<hr class="divider">
+<div class="section-title">🚢 船舶</div>
+<div class="stats">
+  <div class="stat"><span class="num ship">30</span><span class="label">船舶</span></div>
+  <div class="stat"><span class="num ship">0</span><span class="label">タンカー</span></div>
+  <div class="stat"><span class="num ship">0</span><span class="label">軍用</span></div>
+  <div class="stat"><span class="num ship">0</span><span class="label">錨泊</span></div>
+</div>
+<div class="tags"></div>
+  
+  
+<hr class="divider">
+<div class="section-title">📰 紛争イベント（GDELT）</div>
+<div class="stats">
+  <div class="stat"><span class="num" style="color:#c678dd">9</span><span class="label">件数</span></div>
+  <div class="stat"><span class="num" style="color:#c678dd">0.0</span><span class="label">Goldstein平均</span></div>
+  <div class="stat"><span class="num" style="color:#c678dd">0</span><span class="label">報道記事数</span></div>
+</div>
+</div>
+<div class="card surge" id="card-suez_canal">
+  <div class="card-header">
+    <span class="region-name">スエズ運河周辺 🚨</span>
+  </div>
+  
+<table class="trend-table">
+  <tr><th></th><th>現在</th><th>7日比</th><th>24h比</th></tr>
+  <tr><td>🚢 船舶</td><td>19隻</td><td><span class="up">▲+55%</span></td><td><span style="color:#666">±0%</span></td></tr>
+  <tr><td>🔥 火災</td><td>0件</td><td><span class="down">▼100%</span></td><td><span style="color:#666">±0%</span></td></tr>
+  <tr><td>📰 紛争</td><td>25件</td><td><span class="down">▼24%</span></td><td><span class="down">▼66%</span></td></tr>
+</table>
+  
+<hr class="divider">
+<div class="section-title">🚢 船舶</div>
+<div class="stats">
+  <div class="stat"><span class="num ship">19</span><span class="label">船舶</span></div>
+  <div class="stat"><span class="num ship">0</span><span class="label">タンカー</span></div>
+  <div class="stat"><span class="num ship">0</span><span class="label">軍用</span></div>
+  <div class="stat"><span class="num ship">0</span><span class="label">錨泊</span></div>
+</div>
+<div class="tags"></div>
+  
+  
+<hr class="divider">
+<div class="section-title">📰 紛争イベント（GDELT）</div>
+<div class="stats">
+  <div class="stat"><span class="num" style="color:#c678dd">25</span><span class="label">件数</span></div>
+  <div class="stat"><span class="num" style="color:#c678dd">0.0</span><span class="label">Goldstein平均</span></div>
+  <div class="stat"><span class="num" style="color:#c678dd">0</span><span class="label">報道記事数</span></div>
+</div>
+</div>
+<div class="card " id="card-eastern_ukraine">
+  <div class="card-header">
+    <span class="region-name">ウクライナ東部</span>
+  </div>
+  
+<table class="trend-table">
+  <tr><th></th><th>現在</th><th>7日比</th><th>24h比</th></tr>
+  <tr><td>🚢 船舶</td><td>3隻</td><td><span class="down">▼31%</span></td><td><span style="color:#666">±0%</span></td></tr>
+  <tr><td>🔥 火災</td><td>0件</td><td><span class="down">▼100%</span></td><td><span style="color:#666">±0%</span></td></tr>
+  <tr><td>📰 紛争</td><td>2件</td><td><span class="down">▼64%</span></td><td><span class="down">▼33%</span></td></tr>
+</table>
+  
+<hr class="divider">
+<div class="section-title">🚢 船舶</div>
+<div class="stats">
+  <div class="stat"><span class="num ship">3</span><span class="label">船舶</span></div>
+  <div class="stat"><span class="num ship">0</span><span class="label">タンカー</span></div>
+  <div class="stat"><span class="num ship">0</span><span class="label">軍用</span></div>
+  <div class="stat"><span class="num ship">0</span><span class="label">錨泊</span></div>
+</div>
+<div class="tags"></div>
+  
+  
+<hr class="divider">
+<div class="section-title">📰 紛争イベント（GDELT）</div>
+<div class="stats">
+  <div class="stat"><span class="num" style="color:#c678dd">2</span><span class="label">件数</span></div>
+  <div class="stat"><span class="num" style="color:#c678dd">0.0</span><span class="label">Goldstein平均</span></div>
+  <div class="stat"><span class="num" style="color:#c678dd">0</span><span class="label">報道記事数</span></div>
+</div>
+</div>
+<div class="card " id="card-black_sea">
+  <div class="card-header">
+    <span class="region-name">黒海</span>
+  </div>
+  
+<table class="trend-table">
+  <tr><th></th><th>現在</th><th>7日比</th><th>24h比</th></tr>
+  <tr><td>🚢 船舶</td><td>68隻</td><td><span class="up">▲+2%</span></td><td><span style="color:#666">±0%</span></td></tr>
+  <tr><td>🔥 火災</td><td>0件</td><td><span class="down">▼100%</span></td><td><span style="color:#666">±0%</span></td></tr>
+  <tr><td>📰 紛争</td><td>0件</td><td><span class="down">▼100%</span></td><td><span style="color:#666">±0%</span></td></tr>
+</table>
+  
+<hr class="divider">
+<div class="section-title">🚢 船舶</div>
+<div class="stats">
+  <div class="stat"><span class="num ship">68</span><span class="label">船舶</span></div>
+  <div class="stat"><span class="num ship">0</span><span class="label">タンカー</span></div>
+  <div class="stat"><span class="num ship">0</span><span class="label">軍用</span></div>
+  <div class="stat"><span class="num ship">0</span><span class="label">錨泊</span></div>
+</div>
+<div class="tags"></div>
+  
+  
+</div>
+<div class="card " id="card-taiwan_strait">
+  <div class="card-header">
+    <span class="region-name">台湾海峡</span>
+  </div>
+  
+<table class="trend-table">
+  <tr><th></th><th>現在</th><th>7日比</th><th>24h比</th></tr>
+  <tr><td>🚢 船舶</td><td>211隻</td><td><span class="down">▼0%</span></td><td><span style="color:#666">±0%</span></td></tr>
+  <tr><td>🔥 火災</td><td>0件</td><td><span class="down">▼100%</span></td><td><span style="color:#666">±0%</span></td></tr>
+  <tr><td>📰 紛争</td><td>0件</td><td><span style="color:#666">±0%</span></td><td><span style="color:#666">±0%</span></td></tr>
+</table>
+  
+<hr class="divider">
+<div class="section-title">🚢 船舶</div>
+<div class="stats">
+  <div class="stat"><span class="num ship">211</span><span class="label">船舶</span></div>
+  <div class="stat"><span class="num ship">0</span><span class="label">タンカー</span></div>
+  <div class="stat"><span class="num ship">0</span><span class="label">軍用</span></div>
+  <div class="stat"><span class="num ship">0</span><span class="label">錨泊</span></div>
+</div>
+<div class="tags"></div>
+  
+  
+</div>
+<div class="card surge" id="card-south_china_sea">
+  <div class="card-header">
+    <span class="region-name">南シナ海 🚨</span>
+  </div>
+  
+<table class="trend-table">
+  <tr><th></th><th>現在</th><th>7日比</th><th>24h比</th></tr>
+  <tr><td>🚢 船舶</td><td>215隻</td><td><span class="up">▲+2%</span></td><td><span style="color:#666">±0%</span></td></tr>
+  <tr><td>🔥 火災</td><td>0件</td><td><span class="down">▼100%</span></td><td><span class="down">▼100%</span></td></tr>
+  <tr><td>📰 紛争</td><td>1件</td><td><span class="down">▼35%</span></td><td><span class="down">▼67%</span></td></tr>
+</table>
+  
+<hr class="divider">
+<div class="section-title">🚢 船舶</div>
+<div class="stats">
+  <div class="stat"><span class="num ship">215</span><span class="label">船舶</span></div>
+  <div class="stat"><span class="num ship">0</span><span class="label">タンカー</span></div>
+  <div class="stat"><span class="num ship">0</span><span class="label">軍用</span></div>
+  <div class="stat"><span class="num ship">0</span><span class="label">錨泊</span></div>
+</div>
+<div class="tags"></div>
+  
+  
+<hr class="divider">
+<div class="section-title">📰 紛争イベント（GDELT）</div>
+<div class="stats">
+  <div class="stat"><span class="num" style="color:#c678dd">1</span><span class="label">件数</span></div>
+  <div class="stat"><span class="num" style="color:#c678dd">0.0</span><span class="label">Goldstein平均</span></div>
+  <div class="stat"><span class="num" style="color:#c678dd">0</span><span class="label">報道記事数</span></div>
+</div>
+</div>
+<div class="card " id="card-korean_peninsula">
+  <div class="card-header">
+    <span class="region-name">朝鮮半島</span>
+  </div>
+  
+<table class="trend-table">
+  <tr><th></th><th>現在</th><th>7日比</th><th>24h比</th></tr>
+  <tr><td>🚢 船舶</td><td>0隻</td><td><span style="color:#666">±0%</span></td><td><span style="color:#666">±0%</span></td></tr>
+  <tr><td>🔥 火災</td><td>0件</td><td><span class="down">▼100%</span></td><td><span style="color:#666">±0%</span></td></tr>
+  <tr><td>📰 紛争</td><td>0件</td><td><span class="down">▼100%</span></td><td><span style="color:#666">±0%</span></td></tr>
+</table>
+  
+  
+  
+</div>
+<div class="card " id="card-strait_of_malacca">
+  <div class="card-header">
+    <span class="region-name">マラッカ海峡</span>
+  </div>
+  
+<table class="trend-table">
+  <tr><th></th><th>現在</th><th>7日比</th><th>24h比</th></tr>
+  <tr><td>🚢 船舶</td><td>325隻</td><td><span class="up">▲+3%</span></td><td><span style="color:#666">±0%</span></td></tr>
+  <tr><td>🔥 火災</td><td>0件</td><td><span class="down">▼100%</span></td><td><span style="color:#666">±0%</span></td></tr>
+  <tr><td>📰 紛争</td><td>0件</td><td><span style="color:#666">±0%</span></td><td><span style="color:#666">±0%</span></td></tr>
+</table>
+  
+<hr class="divider">
+<div class="section-title">🚢 船舶</div>
+<div class="stats">
+  <div class="stat"><span class="num ship">325</span><span class="label">船舶</span></div>
+  <div class="stat"><span class="num ship">0</span><span class="label">タンカー</span></div>
+  <div class="stat"><span class="num ship">0</span><span class="label">軍用</span></div>
+  <div class="stat"><span class="num ship">0</span><span class="label">錨泊</span></div>
+</div>
+<div class="tags"></div>
+  
+  
+</div>
+<div class="card " id="card-gulf_of_aden">
+  <div class="card-header">
+    <span class="region-name">アデン湾</span>
+  </div>
+  
+<table class="trend-table">
+  <tr><th></th><th>現在</th><th>7日比</th><th>24h比</th></tr>
+  <tr><td>🚢 船舶</td><td>0隻</td><td><span style="color:#666">±0%</span></td><td><span style="color:#666">±0%</span></td></tr>
+  <tr><td>🔥 火災</td><td>0件</td><td><span style="color:#666">±0%</span></td><td><span style="color:#666">±0%</span></td></tr>
+  <tr><td>📰 紛争</td><td>3件</td><td><span style="color:#666">±0%</span></td><td><span style="color:#666">±0%</span></td></tr>
+</table>
+  
+  
+  
+<hr class="divider">
+<div class="section-title">📰 紛争イベント（GDELT）</div>
+<div class="stats">
+  <div class="stat"><span class="num" style="color:#c678dd">3</span><span class="label">件数</span></div>
+  <div class="stat"><span class="num" style="color:#c678dd">0.0</span><span class="label">Goldstein平均</span></div>
+  <div class="stat"><span class="num" style="color:#c678dd">0</span><span class="label">報道記事数</span></div>
+</div>
+</div>
+<div class="card " id="card-indian_ocean">
+  <div class="card-header">
+    <span class="region-name">インド洋（主要航路）</span>
+  </div>
+  
+<table class="trend-table">
+  <tr><th></th><th>現在</th><th>7日比</th><th>24h比</th></tr>
+  <tr><td>🚢 船舶</td><td>0隻</td><td><span style="color:#666">±0%</span></td><td><span style="color:#666">±0%</span></td></tr>
+  <tr><td>🔥 火災</td><td>0件</td><td><span class="down">▼100%</span></td><td><span style="color:#666">±0%</span></td></tr>
+  <tr><td>📰 紛争</td><td>3件</td><td><span class="up">▲+3%</span></td><td><span class="down">▼25%</span></td></tr>
+</table>
+  
+  
+  
+<hr class="divider">
+<div class="section-title">📰 紛争イベント（GDELT）</div>
+<div class="stats">
+  <div class="stat"><span class="num" style="color:#c678dd">3</span><span class="label">件数</span></div>
+  <div class="stat"><span class="num" style="color:#c678dd">0.0</span><span class="label">Goldstein平均</span></div>
+  <div class="stat"><span class="num" style="color:#c678dd">0</span><span class="label">報道記事数</span></div>
+</div>
+</div>
+<div class="card surge" id="card-bay_of_bengal">
+  <div class="card-header">
+    <span class="region-name">ベンガル湾 🚨</span>
+  </div>
+  
+<table class="trend-table">
+  <tr><th></th><th>現在</th><th>7日比</th><th>24h比</th></tr>
+  <tr><td>🚢 船舶</td><td>0隻</td><td><span style="color:#666">±0%</span></td><td><span style="color:#666">±0%</span></td></tr>
+  <tr><td>🔥 火災</td><td>0件</td><td><span class="down">▼100%</span></td><td><span class="down">▼100%</span></td></tr>
+  <tr><td>📰 紛争</td><td>0件</td><td><span class="down">▼100%</span></td><td><span class="down">▼100%</span></td></tr>
+</table>
+  
+  
+  
+</div>
+<div class="card " id="card-western_med">
+  <div class="card-header">
+    <span class="region-name">西地中海</span>
+  </div>
+  
+<table class="trend-table">
+  <tr><th></th><th>現在</th><th>7日比</th><th>24h比</th></tr>
+  <tr><td>🚢 船舶</td><td>859隻</td><td><span class="up">▲+16%</span></td><td><span style="color:#666">±0%</span></td></tr>
+  <tr><td>🔥 火災</td><td>0件</td><td><span class="down">▼100%</span></td><td><span style="color:#666">±0%</span></td></tr>
+  <tr><td>📰 紛争</td><td>3件</td><td><span class="down">▼10%</span></td><td><span class="down">▼40%</span></td></tr>
+</table>
+  
+<hr class="divider">
+<div class="section-title">🚢 船舶</div>
+<div class="stats">
+  <div class="stat"><span class="num ship">859</span><span class="label">船舶</span></div>
+  <div class="stat"><span class="num ship">0</span><span class="label">タンカー</span></div>
+  <div class="stat"><span class="num ship">0</span><span class="label">軍用</span></div>
+  <div class="stat"><span class="num ship">0</span><span class="label">錨泊</span></div>
+</div>
+<div class="tags"></div>
+  
+  
+<hr class="divider">
+<div class="section-title">📰 紛争イベント（GDELT）</div>
+<div class="stats">
+  <div class="stat"><span class="num" style="color:#c678dd">3</span><span class="label">件数</span></div>
+  <div class="stat"><span class="num" style="color:#c678dd">0.0</span><span class="label">Goldstein平均</span></div>
+  <div class="stat"><span class="num" style="color:#c678dd">0</span><span class="label">報道記事数</span></div>
+</div>
+</div></div>
+
+
+<footer>データソース: AISstream.io · NASA FIRMS · GDELT 2.0 — 研究・教育目的のみ</footer>
+
+<script>
+const regions  = {"red_sea": {"name": "紅海", "center": [20.0, 38.0], "bounds": [[8.0, 28.0], [30.0, 46.0]], "week_pct_max": 240.9, "surge": false}, "strait_of_hormuz": {"name": "ホルムズ海峡", "center": [26.0, 56.5], "bounds": [[22.0, 52.0], [30.0, 62.0]], "week_pct_max": 13.1, "surge": true}, "eastern_med": {"name": "東地中海（イスラエル周辺）", "center": [33.0, 35.0], "bounds": [[27.0, 28.0], [38.0, 42.0]], "week_pct_max": -11.6, "surge": true}, "persian_gulf": {"name": "ペルシャ湾", "center": [25.5, 52.0], "bounds": [[21.0, 46.0], [30.0, 60.0]], "week_pct_max": 13.0, "surge": false}, "suez_canal": {"name": "スエズ運河周辺", "center": [30.5, 32.5], "bounds": [[27.0, 29.0], [33.0, 36.0]], "week_pct_max": 55.4, "surge": true}, "eastern_ukraine": {"name": "ウクライナ東部", "center": [49.0, 36.0], "bounds": [[44.0, 28.0], [54.0, 42.0]], "week_pct_max": -31.4, "surge": false}, "black_sea": {"name": "黒海", "center": [43.0, 34.0], "bounds": [[38.0, 24.0], [48.0, 44.0]], "week_pct_max": 2.3, "surge": false}, "taiwan_strait": {"name": "台湾海峡", "center": [24.5, 120.0], "bounds": [[20.0, 114.0], [29.0, 126.0]], "week_pct_max": 0, "surge": false}, "south_china_sea": {"name": "南シナ海", "center": [13.0, 114.0], "bounds": [[2.0, 105.0], [24.0, 122.0]], "week_pct_max": 1.9, "surge": true}, "korean_peninsula": {"name": "朝鮮半島", "center": [37.5, 127.0], "bounds": [[32.0, 122.0], [44.0, 132.0]], "week_pct_max": 0, "surge": false}, "strait_of_malacca": {"name": "マラッカ海峡", "center": [4.0, 102.0], "bounds": [[-2.0, 96.0], [10.0, 108.0]], "week_pct_max": 2.9, "surge": false}, "gulf_of_aden": {"name": "アデン湾", "center": [12.0, 48.0], "bounds": [[8.0, 42.0], [16.0, 58.0]], "week_pct_max": 0, "surge": false}, "indian_ocean": {"name": "インド洋（主要航路）", "center": [12.0, 65.0], "bounds": [[-5.0, 55.0], [25.0, 78.0]], "week_pct_max": 3.2, "surge": false}, "bay_of_bengal": {"name": "ベンガル湾", "center": [13.0, 88.0], "bounds": [[5.0, 80.0], [22.0, 98.0]], "week_pct_max": 0, "surge": true}, "western_med": {"name": "西地中海", "center": [38.0, 10.0], "bounds": [[30.0, -6.0], [46.0, 22.0]], "week_pct_max": 16.0, "surge": false}};
+const ships    = [];
+const fires    = [];
+const events   = [];
+const histData = {"labels": ["03/19 19:37", "03/19 21:48", "03/19 23:00", "03/20 01:27", "03/20 01:44", "03/20 05:07", "03/20 07:58", "03/20 10:02", "03/20 11:57", "03/20 14:31", "03/20 14:37", "03/20 14:55", "03/20 15:07", "03/20 17:11", "03/20 19:50", "03/20 21:01", "03/20 22:59", "03/20 23:55", "03/21 10:43", "03/21 04:33", "03/21 04:53", "03/21 07:09", "03/21 08:22", "03/21 09:01", "03/21 13:28", "03/21 13:54", "03/21 14:05", "03/21 14:29", "03/21 14:55", "03/21 15:49", "03/21 16:58", "03/21 17:52", "03/21 19:03", "03/21 20:53", "03/21 21:48", "03/21 22:54", "03/21 23:49", "03/22 05:11", "03/22 07:51", "03/22 09:03", "03/22 10:56", "03/22 11:44", "03/22 13:55", "03/22 14:56", "03/22 15:51", "03/22 16:58", "03/22 17:54", "03/22 19:05", "03/22 20:56", "03/22 21:51", "03/22 22:56", "03/22 23:55", "03/23 05:47", "03/23 08:37", "03/23 11:33", "03/23 15:39", "03/23 18:10", "03/23 20:57", "03/23 22:00", "03/23 23:58", "03/24 05:15", "03/24 08:06", "03/24 11:34", "03/24 15:46", "03/24 19:36", "03/24 21:54", "03/24 23:03", "03/25 05:16", "03/25 08:05", "03/25 11:28", "03/25 15:49", "03/25 18:38", "03/25 20:57", "03/25 22:59", "03/26 00:03"], "datasets": [{"label": "🚢 船舶", "data": [770, 865, 889, 830, 785, 2056, 2120, 2045, 1917, 1930, 1882, 1903, 1880, 1869, 1905, 1859, 1990, 2000, 0, 1937, 1912, 1819, 1875, 1911, 1828, 1858, 1809, 1818, 1815, 1820, 1898, 1868, 1820, 1780, 1830, 1829, 1872, 1718, 1656, 1652, 1689, 1717, 1769, 1706, 1701, 1741, 1761, 1748, 1739, 1719, 1891, 0, 1836, 1738, 1748, 1674, 1713, 1704, 1708, 1705, 1757, 1569, 1593, 1740, 1814, 1783, 1920, 1874, 1885, 1766, 1781, 1880, 1776, 2010, 1839], "color": "#a8d8a8"}, {"label": "🔥 火災", "data": [2985, 3354, 3354, 0, 0, 3, 145, 155, 455, 455, 455, 459, 471, 553, 553, 553, 553, 553, 0, 0, 0, 2, 4, 4, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 0, 0, 1, 7, 7, 7, 7, 1, 7, 7, 7, 7, 7, 7, 7, 0, 0, 10, 10, 10, 10, 10, 10, 0, 0, 6, 6, 6, 6, 6, 0, 0, 35, 35, 35, 35, 35, 0], "color": "#ff8800"}, {"label": "📰 紛争イベント", "data": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 19, 91, 137, 93, 98, 138, 138, 85, 122, 98, 80, 101, 165, 145, 60, 109, 143, 185, 230, 114, 106, 147, 161, 226, 211, 245, 197, 145, 194, 106, 74, 110, 215, 100, 122, 174, 205, 359, 153, 105, 168, 80, 102, 249, 125, 403, 126, 96, 135, 188, 116, 177, 221, 149, 84, 91], "color": "#c678dd"}], "by_region": {"red_sea": {"ships": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "fires": [429, 429, 429, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 73, 73, 73, 73, 73, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "events": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 1, 2, 0, 0, 1, 1, 2, 3, 3, 3, 0, 1, 2, 5, 2, 9, 0, 4, 0, 0, 5, 2, 2, 0, 4, 0, 1, 4, 5, 0, 0, 4, 2, 3, 0, 3, 5, 1, 1, 8, 1, 4, 7, 0, 5, 3, 6, 4, 3, 2, 0, 6]}, "strait_of_hormuz": {"ships": [38, 61, 18, 48, 53, 31, 54, 60, 56, 29, 33, 38, 42, 39, 36, 25, 31, 55, 0, 33, 32, 27, 28, 30, 30, 29, 27, 19, 25, 25, 31, 21, 26, 16, 15, 15, 13, 19, 21, 25, 30, 29, 27, 45, 47, 26, 28, 34, 30, 25, 25, 0, 33, 22, 2, 0, 1, 1, 2, 0, 0, 0, 2, 16, 33, 31, 25, 22, 28, 24, 25, 35, 27, 30, 30], "fires": [24, 24, 24, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "events": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 15, 3, 9, 4, 3, 1, 11, 14, 5, 8, 5, 4, 1, 0, 2, 4, 24, 8, 2, 1, 5, 1, 3, 7, 6, 3, 8, 2, 0, 3, 1, 5, 15, 7, 13, 13, 10, 0, 1, 5, 5, 6, 7, 1, 13, 5, 3, 3, 4, 6, 9, 8, 2, 3]}, "eastern_med": {"ships": [56, 68, 80, 70, 76, 107, 112, 105, 85, 109, 111, 110, 91, 89, 92, 95, 99, 85, 0, 103, 98, 94, 91, 98, 101, 107, 111, 118, 103, 84, 116, 114, 99, 84, 110, 87, 106, 86, 91, 82, 89, 111, 122, 93, 87, 88, 96, 77, 97, 82, 86, 0, 94, 100, 117, 89, 108, 81, 81, 78, 89, 90, 85, 80, 98, 77, 90, 67, 69, 97, 69, 63, 68, 83, 79], "fires": [45, 45, 45, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "events": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 38, 40, 38, 35, 54, 56, 30, 40, 26, 18, 26, 70, 47, 26, 42, 58, 85, 68, 35, 51, 64, 68, 129, 91, 108, 98, 72, 79, 53, 36, 39, 103, 28, 41, 75, 79, 150, 62, 45, 85, 24, 29, 99, 55, 190, 37, 33, 53, 71, 33, 63, 98, 49, 27, 36]}, "persian_gulf": {"ships": [38, 61, 18, 48, 53, 31, 54, 60, 56, 29, 33, 38, 42, 39, 36, 25, 31, 55, 0, 33, 32, 27, 28, 30, 30, 29, 27, 19, 25, 25, 31, 21, 26, 16, 15, 15, 13, 19, 21, 25, 30, 29, 27, 45, 47, 26, 29, 35, 30, 25, 25, 0, 33, 22, 2, 0, 1, 1, 2, 0, 0, 0, 2, 16, 33, 31, 25, 22, 28, 24, 25, 35, 27, 30, 30], "fires": [32, 32, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 5, 5, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "events": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 24, 7, 19, 10, 7, 8, 21, 22, 10, 10, 15, 23, 8, 5, 4, 4, 46, 12, 11, 14, 9, 11, 17, 17, 8, 12, 23, 5, 5, 5, 16, 13, 16, 7, 23, 15, 13, 8, 8, 10, 6, 13, 11, 15, 23, 3, 6, 45, 15, 13, 7, 15, 7, 9]}, "suez_canal": {"ships": [4, 5, 19, 3, 18, 23, 19, 10, 4, 25, 26, 25, 3, 0, 10, 10, 16, 2, 0, 4, 0, 4, 1, 3, 12, 26, 26, 28, 15, 5, 29, 27, 23, 4, 30, 11, 28, 4, 7, 2, 10, 29, 33, 7, 4, 5, 11, 4, 16, 6, 11, 0, 7, 11, 17, 12, 28, 6, 4, 5, 11, 18, 12, 6, 25, 3, 21, 4, 1, 22, 4, 5, 7, 22, 19], "fires": [42, 42, 42, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "events": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 28, 28, 24, 24, 44, 52, 28, 35, 20, 17, 22, 59, 41, 23, 33, 45, 64, 55, 31, 31, 45, 60, 73, 62, 82, 51, 47, 62, 37, 27, 34, 74, 21, 32, 53, 45, 136, 47, 32, 51, 13, 20, 79, 28, 172, 29, 26, 43, 39, 30, 48, 69, 38, 18, 25]}, "eastern_ukraine": {"ships": [3, 5, 7, 2, 1, 6, 5, 5, 2, 2, 3, 3, 2, 8, 11, 5, 7, 7, 0, 7, 10, 1, 3, 5, 2, 5, 2, 2, 4, 4, 6, 5, 4, 3, 4, 2, 6, 4, 3, 4, 0, 2, 12, 10, 6, 5, 7, 7, 6, 6, 7, 0, 3, 5, 5, 7, 5, 2, 5, 9, 4, 6, 0, 0, 6, 3, 4, 3, 6, 2, 0, 3, 4, 5, 3], "fires": [130, 130, 130, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "events": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 16, 4, 0, 7, 7, 10, 9, 10, 8, 4, 0, 4, 0, 9, 11, 4, 25, 3, 5, 1, 7, 2, 7, 12, 10, 0, 1, 0, 4, 9, 3, 14, 0, 3, 19, 10, 9, 4, 1, 18, 24, 18, 7, 2, 9, 16, 11, 10, 10, 7, 9, 2, 19, 2]}, "black_sea": {"ships": [52, 50, 43, 39, 39, 73, 74, 71, 64, 64, 67, 66, 62, 68, 85, 73, 74, 73, 0, 73, 79, 66, 74, 75, 74, 74, 69, 67, 70, 71, 74, 71, 66, 63, 71, 64, 73, 73, 67, 67, 74, 77, 78, 79, 72, 73, 75, 69, 64, 70, 68, 0, 70, 72, 54, 66, 65, 67, 70, 66, 62, 58, 58, 68, 76, 66, 71, 77, 80, 71, 72, 70, 71, 72, 68], "fires": [129, 129, 129, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "events": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 2, 2, 0, 0, 0, 3, 1, 2, 0, 0, 2, 0, 0, 10, 2, 0, 5, 1, 0, 9, 4, 0, 3, 0, 0, 0, 9, 0, 7, 2, 2, 10, 4, 2, 0, 0, 2, 4, 3, 3, 0, 1, 10, 3, 3, 1, 2, 0, 6, 4, 0]}, "taiwan_strait": {"ships": [169, 184, 215, 181, 148, 250, 242, 215, 200, 226, 221, 220, 217, 223, 236, 239, 263, 267, 0, 254, 244, 201, 223, 228, 215, 215, 206, 215, 214, 238, 239, 247, 242, 255, 261, 274, 268, 213, 181, 175, 173, 170, 189, 177, 184, 210, 223, 228, 227, 243, 274, 0, 217, 193, 223, 223, 217, 244, 250, 260, 237, 165, 145, 185, 196, 205, 246, 231, 224, 161, 176, 198, 192, 257, 211], "fires": [95, 97, 97, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "events": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 4, 0, 3, 1, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 2, 0, 0]}, "south_china_sea": {"ships": [168, 183, 214, 181, 147, 247, 241, 214, 200, 224, 220, 217, 217, 222, 234, 238, 259, 264, 0, 253, 244, 202, 223, 227, 213, 211, 202, 214, 215, 239, 239, 247, 240, 249, 257, 273, 265, 213, 180, 175, 172, 170, 190, 177, 184, 207, 224, 229, 226, 243, 274, 0, 217, 193, 220, 222, 217, 244, 249, 259, 235, 165, 145, 185, 193, 206, 247, 232, 223, 161, 174, 199, 192, 259, 215], "fires": [1256, 1475, 1475, 0, 0, 0, 52, 52, 52, 52, 52, 52, 52, 52, 52, 52, 52, 52, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 3, 3, 3, 3, 3, 3, 0, 0, 1, 1, 1, 1, 1, 0, 0, 12, 12, 12, 12, 12, 0], "events": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 2, 0, 3, 2, 0, 0, 0, 0, 3, 4, 8, 0, 3, 6, 3, 0, 3, 0, 1, 1, 1, 1, 0, 8, 1, 7, 4, 0, 0, 3, 0, 1, 6, 1, 3, 0, 1, 2, 0, 0, 0, 3, 0, 3, 0, 0, 2, 2, 10, 4, 9, 0, 1]}, "korean_peninsula": {"ships": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "fires": [710, 726, 726, 0, 0, 0, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "events": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 2, 2, 0, 0, 0, 0, 0, 3, 5, 3, 1, 0, 5, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 0, 1, 2, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 2, 1, 9, 2, 0, 0, 1, 0, 5, 6, 0, 5, 0, 0, 0]}, "strait_of_malacca": {"ships": [242, 248, 275, 258, 250, 365, 370, 353, 331, 309, 309, 302, 311, 303, 353, 348, 379, 397, 0, 357, 348, 370, 359, 389, 353, 333, 325, 338, 343, 327, 351, 337, 330, 333, 332, 341, 364, 335, 307, 333, 342, 352, 324, 314, 304, 316, 289, 311, 297, 298, 321, 0, 328, 300, 332, 305, 320, 319, 316, 298, 333, 297, 312, 294, 316, 325, 329, 323, 324, 318, 303, 338, 310, 341, 325], "fires": [93, 225, 225, 0, 0, 0, 12, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "events": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 2, 2, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 2, 0, 1, 2, 2, 0, 0, 0]}, "gulf_of_aden": {"ships": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "fires": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "events": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 6, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0, 3]}, "indian_ocean": {"ships": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "fires": [0, 0, 0, 1, 1, 1, 5, 5, 5, 5, 5, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "events": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2, 2, 5, 2, 2, 3, 2, 11, 5, 2, 8, 1, 1, 11, 9, 0, 4, 5, 4, 6, 3, 9, 5, 7, 2, 5, 0, 0, 1, 4, 5, 9, 10, 2, 0, 2, 3, 5, 2, 7, 10, 1, 9, 0, 0, 2, 4, 0, 9, 1, 8, 1, 3]}, "bay_of_bengal": {"ships": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "fires": [0, 41, 47, 346, 346, 346, 346, 346, 346, 346, 346, 346, 346, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 6, 6, 6, 6, 0, 6, 6, 6, 6, 6, 6, 6, 0, 0, 7, 7, 7, 7, 7, 7, 0, 0, 5, 5, 5, 5, 5, 0, 0, 23, 23, 23, 23, 23, 0], "events": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 6, 0, 0, 0, 0, 0, 1, 0, 3, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 3, 0, 1, 1, 2, 1, 4, 0, 5, 0, 0]}, "western_med": {"ships": [923, 949, 952, 919, 913, 859, 884, 893, 878, 812, 801, 831, 795, 0, 820, 825, 827, 845, 826, 798, 829, 814, 797, 801, 802, 782, 778, 764, 757, 735, 747, 736, 752, 778, 764, 769, 748, 767, 759, 766, 785, 779, 754, 746, 721, 799, 0, 834, 820, 776, 750, 751, 739, 729, 730, 786, 770, 832, 890, 838, 836, 862, 893, 902, 886, 933, 934, 878, 911, 859], "fires": [3, 3, 3, 3, 3, 3, 3, 3, 12, 12, 12, 12, 12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "events": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 9, 4, 7, 7, 6, 2, 3, 2, 9, 2, 5, 1, 2, 4, 6, 0, 1, 0, 4, 4, 3, 4, 4, 3, 2, 0, 4, 1, 6, 5, 5, 5, 3, 10, 24, 8, 8, 8, 0, 0, 4, 6, 7, 4, 1, 6, 1, 6, 8, 12, 3, 6, 3]}}};
+const SUPABASE_URL  = 'https://iuyiqlyqfhahwxiwoztd.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1eWlxbHlxZmhhaHd4aXdvenRkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5NDQxOTAsImV4cCI6MjA4OTUyMDE5MH0.VfCuijogWh9UizHIyPxvzD-HarBzrGRWKCyMNwKja3k';
+
+// ── 地図（Canvas レンダラーで高速描画）──────────────────────────
+const renderer   = L.canvas({ padding: 0.5 });
+const map        = L.map('map', {
+  maxBounds: [[-90, -180], [90, 180]],
+  maxBoundsViscosity: 1.0,
+
+}).setView([20, 40], 3);
+const shipLayer  = L.layerGroup().addTo(map);
+const fireLayer  = L.layerGroup().addTo(map);
+const eventLayer = L.layerGroup().addTo(map);
+
+// レイヤー表示状態
+const layerState = { ships: true, fires: true, events: true };
+const layerMap   = { ships: shipLayer, fires: fireLayer, events: eventLayer };
+
+function toggleLayer(name) {
+  layerState[name] = !layerState[name];
+  const btn = document.getElementById('btn-' + name);
+  btn.classList.toggle('off', !layerState[name]);
+  const layer = layerMap[name];
+  if (layerState[name]) { map.addLayer(layer); } else { map.removeLayer(layer); }
+}
+
+function updateCount(name, n) {
+  const el = document.getElementById('cnt-' + name);
+  if (el) el.textContent = n > 0 ? `(${n})` : '';
+}
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; OpenStreetMap &copy; CARTO'
+}).addTo(map);
+
+// 監視地域ボックス
+Object.entries(regions).forEach(([id, r]) => {
+  const color = r.surge ? '#e74c3c' : r.week_pct_max > 50 ? '#f39c12' : '#27ae60';
+  L.rectangle(r.bounds, { color, weight: r.surge ? 2 : 1, fillOpacity: r.surge ? 0.15 : 0.06, renderer })
+   .addTo(map)
+   .bindTooltip(`${r.name}${r.surge ? ' 🚨急上昇' : ''}`, { sticky: true })
+   .on('click', (e) => { L.DomEvent.stopPropagation(e); switchChart(id, r.name); });
+});
+
+// ── 火災・船舶レンダリング関数 ───────────────────────────────────
+function fireColor(frp) {
+  // 対数スケール: 200MW→0、1000MW→1（以上は白）
+  const t = Math.min(Math.log(frp / 200) / Math.log(5), 1);
+  // 暗オレンジ→オレンジ→黄→白 の4段階グラデーション
+  const stops = [[0xcc,0x44,0x00],[0xff,0x88,0x00],[0xff,0xff,0x00],[0xff,0xff,0xff]];
+  const seg = t * (stops.length - 1);
+  const i   = Math.min(Math.floor(seg), stops.length - 2);
+  const s   = seg - i;
+  const r   = Math.round(stops[i][0] + (stops[i+1][0] - stops[i][0]) * s);
+  const g   = Math.round(stops[i][1] + (stops[i+1][1] - stops[i][1]) * s);
+  const b   = Math.round(stops[i][2] + (stops[i+1][2] - stops[i][2]) * s);
+  return `rgb(${r},${g},${b})`;
+}
+
+function renderFires(data) {
+  fireLayer.clearLayers();
+  data.forEach(f => {
+    const color  = fireColor(f.frp);
+    const radius = Math.min(3 + Math.log10(Math.max(f.frp, 200) / 200) * 4, 10);
+    L.circleMarker([f.lat, f.lon], { radius, color, fillColor: color, fillOpacity: 0.85, weight: 0, renderer })
+     .bindPopup(`<b>🔥 火災</b><br>強度: ${f.frp} MW<br>信頼度: ${f.confidence}<br>${f.acq_date} ${f.acq_time}`)
+     .addTo(fireLayer);
+  });
+  updateCount('fires', data.length);
+}
+
+function renderShips(data) {
+  shipLayer.clearLayers();
+  data.forEach(s => {
+    const t     = s.ship_type || 0;
+    const color = t === 35 ? '#e74c3c' : (t >= 80 && t <= 89) ? '#f39c12' : '#a8d8a8';
+    const sog   = s.sog != null ? (+s.sog).toFixed(1) + ' kt' : '不明';
+    L.circleMarker([s.lat, s.lon], { radius: 4, color, fillColor: color, fillOpacity: 0.7, weight: 1, renderer })
+     .bindPopup(`<b>🚢 ${s.name || s.mmsi}</b><br>種別: ${s.type_label}<br>速度: ${sog}<br>状態: ${s.nav_status}`)
+     .addTo(shipLayer);
+  });
+  updateCount('ships', data.length);
+}
+
+function eventColor(code) {
+  if (['183','186','195','200','201','202','203'].includes(code)) return '#e74c3c';  // 赤: 爆撃・暗殺・大量暴力
+  if (['193','194'].includes(code)) return '#e67e22';                               // オレンジ: 戦闘
+  return '#c678dd';                                                                  // 紫: その他
+}
+
+function renderEvents(data) {
+  eventLayer.clearLayers();
+  data.forEach(e => {
+    const color  = eventColor(e.event_code || '');
+    const radius = Math.min(4 + Math.floor(e.num_articles / 10), 10);
+    L.circleMarker([e.lat, e.lon], {
+      radius, color, fillColor: color, fillOpacity: 0.6, weight: 1, renderer
+    }).bindPopup(
+      `<b>📰 ${e.event_label || 'Conflict event'}</b><br>` +
+      `${e.location || ''}<br>` +
+      `${e.actor1 || '?'} vs ${e.actor2 || '?'}<br>` +
+      `Articles: ${e.num_articles}　Goldstein: ${e.goldstein}<br>` +
+      (e.source_url ? `<a href="${e.source_url}" target="_blank" style="color:#88ccff">📎 Source</a>` : '')
+    ).addTo(eventLayer);
+  });
+  updateCount('events', data.length);
+}
+
+// 初期表示（HTMLに埋め込まれた現在データ、空の場合はSupabaseから取得）
+renderShips(ships);
+if (fires.length > 0) {
+  renderFires(fires);
+}
+if (events.length > 0) {
+  renderEvents(events);
+}
+
+// ── タイムスライダー（Supabase 履歴） ───────────────────────────
+let timestamps = [];
+
+async function sbFetch(path) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    headers: { apikey: SUPABASE_ANON, Authorization: `Bearer ${SUPABASE_ANON}` }
+  });
+  return res.json();
+}
+
+async function onSliderChange(idx) {
+  const ts  = timestamps[idx];
+  const isLatest = idx === timestamps.length - 1;
+  const d   = new Date(ts);
+  const lbl = d.toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  document.getElementById('tsLabel').textContent = isLatest ? `現在 (${lbl})` : lbl;
+  document.getElementById('tsNowBtn').style.opacity = isLatest ? '0.4' : '1';
+
+  const ets = encodeURIComponent(ts);
+  const [f, s] = await Promise.all([
+    sbFetch(`fires?captured_at=eq.${ets}&select=lat,lon,frp,confidence,acq_date,acq_time`),
+    sbFetch(`ships?captured_at=eq.${ets}&select=lat,lon,mmsi,name,flag,ship_type,type_label,sog,nav_status`),
+  ]);
+  renderFires(f);
+  renderShips(s);
+}
+
+function goToLatest() {
+  const slider = document.getElementById('tsSlider');
+  slider.value = timestamps.length - 1;
+  onSliderChange(timestamps.length - 1);
+}
+
+(async () => {
+  try {
+    const rows = await sbFetch('ship_timestamps?order=captured_at.desc&limit=200');
+    for (const r of rows) { timestamps.push(r.captured_at); }
+    timestamps.reverse();
+    if (timestamps.length === 0) return;
+
+    const slider = document.getElementById('tsSlider');
+    slider.max   = timestamps.length - 1;
+    slider.value = timestamps.length - 1;
+
+    // 最新タイムスタンプでラベル更新
+    const ts  = timestamps[timestamps.length - 1];
+    const lbl = new Date(ts).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    document.getElementById('tsLabel').textContent = `現在 (${lbl})`;
+    document.getElementById('tsNowBtn').style.opacity = '0.4';
+
+    // 初期表示が空なら最新データをSupabaseから取得
+    if (fires.length === 0 || events.length === 0) {
+      const ets = encodeURIComponent(ts);
+      const [f, e] = await Promise.all([
+        fires.length === 0  ? sbFetch(`fires?captured_at=eq.${ets}&select=lat,lon,frp,confidence,acq_date,acq_time`) : Promise.resolve(null),
+        events.length === 0 ? sbFetch(`events?captured_at=eq.${ets}&select=lat,lon,event_code,event_root,goldstein,num_articles,avg_tone,actor1,actor2,location`) : Promise.resolve(null),
+      ]);
+      if (f) renderFires(f);
+      if (e) renderEvents(e);
+    }
+
+    if (timestamps.length >= 2) {
+      document.getElementById('tsSection').style.display = 'block';
+    }
+  } catch(e) { console.warn('Supabase 履歴取得失敗:', e); }
+})();
+
+// ── 時系列グラフ ────────────────────────────────────────────────
+const COLORS = [
+  '#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6',
+  '#1abc9c','#e67e22','#34495e','#e91e63','#00bcd4','#8bc34a'
+];
+
+const ctx = document.getElementById('trendChart').getContext('2d');
+const trendChart = new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: histData.labels,
+    datasets: histData.datasets.map(d => ({
+      label:           d.label,
+      data:            d.data,
+      borderColor:     d.color,
+      backgroundColor: 'transparent',
+      borderWidth: 1.5,
+      pointRadius: 2,
+      tension:     0.3,
+      yAxisID:     d.label.includes('船舶') ? 'yShip' : d.label.includes('火災') ? 'yFire' : 'yEvent',
+    })),
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: {
+        ticks: {
+          color: '#666', font: { size: 10 },
+          maxTicksLimit: 40,
+          callback: function(val, index) {
+            const label    = histData.labels[index] || '';
+            const prevLabel= histData.labels[index - 1] || '';
+            const [date, time]     = label.split(' ');
+            const [prevDate]       = prevLabel.split(' ');
+            if (date !== prevDate) return date;  // 日付が変わった時点で日付表示
+            const n    = histData.labels.length;
+            const step = Math.max(Math.floor(n / 8), 1);
+            if (index % step === 0) return time;
+            if (index === n - 1) return time;
+            return null;
+          },
+        },
+        grid: { color: '#2a2a4a' },
+      },
+      yShip:  { position: 'left',  ticks: { color: '#a8d8a8', font: { size: 10 } }, grid: { color: '#2a2a4a' }, min: 0 },
+      yFire:  { display: false, min: 0 },
+      yEvent: { display: false, min: 0 },
+    },
+  },
+});
+
+// 地図の地域外クリックで全地域合計に戻す
+map.on('click', () => {
+  if (activeRegion) switchChart(activeRegion, '');
+});
+
+// 地域クリック時のチャート切り替え
+let activeRegion = null;
+function switchChart(rid, name) {
+  if (activeRegion === rid) {
+    // 同じ地域を再クリック → 全地域合計に戻す
+    activeRegion = null;
+    document.getElementById('chartTitle').textContent = '📈 指標別件数推移（過去7日間・全地域合計）';
+    trendChart.data.datasets[0].data = histData.datasets[0].data;
+    trendChart.data.datasets[1].data = histData.datasets[1].data;
+    trendChart.data.datasets[2].data = histData.datasets[2].data;
+    document.querySelectorAll('.card.active').forEach(el => el.classList.remove('active'));
+  } else {
+    activeRegion = rid;
+    const rd = histData.by_region[rid];
+    if (!rd) return;
+    document.getElementById('chartTitle').textContent = `📈 指標別件数推移（過去7日間・${name}）`;
+    trendChart.data.datasets[0].data = rd.ships;
+    trendChart.data.datasets[1].data = rd.fires;
+    trendChart.data.datasets[2].data = rd.events;
+    document.querySelectorAll('.card.active').forEach(el => el.classList.remove('active'));
+    const card = document.getElementById(`card-${rid}`);
+    if (card) {
+      card.classList.add('active');
+    }
+  }
+  trendChart.update();
+}
+
+// カスタム凡例（チェックボックス）
+const legendEl = document.getElementById('chartLegend');
+trendChart.data.datasets.forEach((ds, i) => {
+  const lbl = document.createElement('label');
+  const cb  = document.createElement('input');
+  cb.type    = 'checkbox';
+  cb.checked = true;
+  cb.style.accentColor = ds.borderColor;
+  cb.onchange = () => { trendChart.setDatasetVisibility(i, cb.checked); trendChart.update(); };
+  const bar = document.createElement('span');
+  bar.style.cssText = `width:16px;height:3px;background:${ds.borderColor};display:inline-block;border-radius:2px;flex-shrink:0;`;
+  lbl.appendChild(cb);
+  lbl.appendChild(bar);
+  lbl.appendChild(document.createTextNode(ds.label));
+  legendEl.appendChild(lbl);
+});
+</script>
+</body>
+</html>

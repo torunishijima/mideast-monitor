@@ -3,7 +3,7 @@ import json
 import os
 from datetime import datetime
 
-HISTORY_PATH = 'public/data/history.json'
+HISTORY_PATH = 'docs/data/history.json'
 MAX_ENTRIES  = 168  # 7日分（24時間 × 7）
 
 
