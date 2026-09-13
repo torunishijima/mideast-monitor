@@ -12,13 +12,15 @@ type: project
 ### 止めたもの
 
 - GitHub Actions の `Update Monitor`（毎時実行）を `gh workflow disable` で無効化
-  - 止める前は毎回5〜9分かけて失敗し続けていた（Supabaseが無いため）
-  - Actions の実行時間を無駄に消費し、失敗通知も出ていた
+  - 直近の実行は失敗していたが、**全部が失敗していたわけではない**。
+    レポートの更新コミットは停止直前（2026-09-12 17:33 UTC）まで続いていた。
+    Supabaseへの保存だけが失敗し、レポート生成は通っていたと思われる
 
 ### 残してあるもの
 
 - **GitHub Pages はそのまま公開中** → https://torunishijima.github.io/mideast-monitor/
-  - `main` の `/docs` から配信。2026年4月15日時点のレポートが読める状態で凍結
+  - `main` の `/docs` から配信。**2026年9月12日 17:33 UTC 時点**の
+    レポートが読める状態で凍結
   - `pages-build-deployment` ワークフローは active のままだが、`/docs` に
     変更があったときだけ動くので、放っておいても実行されない
 - リポジトリは public のまま
